@@ -69,6 +69,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 - If two requests with the same key race, the second hits the unique constraint. It catches `IntegrityError`, rolls back, and re-reads the existing order.
 - **Retry and the token:** only the hash is stored, so a random token couldn't be returned again. The HMAC-derived token (section 3) is recomputed from the key, so a retry gets the same link.
 - **Cancellation:** `POST /api/admin/orders/{order_number}/cancel` (admin, `status = 'awaiting_payment'` only) sets `cancelled` and adds each line's `qty` back to `books.stock` in one transaction. Paid orders can't be cancelled in R1.
+- **Shipping:** `POST /api/admin/orders/{order_number}/ship` (admin, `status = 'paid'` only) sets `shipped` and `shipped_at`. Allowed transitions: awaiting_payment to paid or cancelled; paid to shipped. Anything else returns 409. Endpoint details and the shipped email belong to #24's ADR.
 - Mark paid: `POST /api/admin/orders/{order_number}/paid` sets `paid` and `paid_at`.
 
 ### Data model
@@ -80,7 +81,7 @@ CREATE TABLE settings (
 );
 -- ('shipping_cents', 500) placeholder until the owner sets the fee
 
-CREATE TYPE order_status AS ENUM ('awaiting_payment', 'paid', 'cancelled');
+CREATE TYPE order_status AS ENUM ('awaiting_payment', 'paid', 'shipped', 'cancelled');
 
 CREATE TABLE orders (
   id               bigserial PRIMARY KEY,
@@ -105,6 +106,7 @@ CREATE TABLE orders (
   btc_address      text        NOT NULL,          -- snapshot of BTC_ADDRESS
   created_at       timestamptz NOT NULL DEFAULT now(),
   paid_at          timestamptz,
+  shipped_at       timestamptz,
   cancelled_at     timestamptz
 );
 
@@ -157,7 +159,7 @@ class OrderLineOut(BaseModel):
 class OrderOut(BaseModel):         # POST → 201 (new) | 200 (retry); GET /api/orders/{token} → 200 | 404
     order_number: str              # "BH-7K3Q9"
     token: str | None              # in POST response only; the SPA navigates to /ordre/{token}
-    status: Literal["awaiting_payment", "paid", "cancelled"]
+    status: Literal["awaiting_payment", "paid", "shipped", "cancelled"]
     lines: list[OrderLineOut]
     subtotal_cents: int
     shipping_cents: int
@@ -181,7 +183,7 @@ Errors use `{"code": str, "message": str, ...}`:
 | 422 | validation / `idempotency_key_reused` | Bad body, or same key with a different body |
 | 503 | `rate_unavailable` | No fresh rate |
 
-`GET /api/orders/{token}` returns 404 for an unknown token. It omits `token` (`token: str | None`, only set on POST). It sets `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, so the token doesn't leak via referrers. The status field answers design question 7: the page can show awaiting, paid or cancelled.
+`GET /api/orders/{token}` returns 404 for an unknown token. It omits `token` (`token: str | None`, only set on POST). It sets `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, so the token doesn't leak via referrers. The status field answers design question 7: the page can show awaiting, paid, shipped or cancelled.
 
 Public `POST /api/orders` takes `Content-Type: application/json` only. Rate limiting is left to R2 unless spam shows up; orders hold stock, so the admin cancel is the release valve.
 
