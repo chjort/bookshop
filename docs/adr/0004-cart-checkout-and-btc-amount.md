@@ -51,7 +51,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 ### 3. Order number and URL token
 
 - **Order number:** `BH-` plus 5 Crockford base32 characters (no I, L, O, U), e.g. `BH-7K3Q9`. That's 33 million values, generated with `secrets.choice`, unique index, retried on collision. It's short to type as a wallet note and it's not used for access.
-- **URL token:** 32 bytes, base64url (43 chars), computed as `HMAC-SHA256(ORDER_TOKEN_SECRET, idempotency_key)`. It is as unguessable as `secrets.token_urlsafe(32)` without the server secret, and it lets a retry return the same link (section 4). `ORDER_TOKEN_SECRET` is a new env var, separate from `SESSION_SECRET`. The payment page is `/ordre/{token}`.
+- **URL token:** 32 bytes, base64url (43 chars), computed as `HMAC-SHA256(ORDER_TOKEN_SECRET, idempotency_key)`. It is as unguessable as `secrets.token_urlsafe(32)` without the server secret, and it lets a retry return the same link (section 4). `ORDER_TOKEN_SECRET` is a new env var, separate from `SESSION_SECRET`. The payment page is `/order/{token}`.
 - The token is **stored as a SHA-256 hash** (`token_hash bytea`, unique index). It's 256 bits of entropy, so a plain hash is enough (no salt or slow hash needed). A database leak doesn't expose working order links, and the lookup is still a single indexed query. The plain token is returned once, in the `POST /api/orders` response, and lives only in the customer's URL.
 - **Trade-off:** the owner can't rebuild a customer's link from the database. The admin finds orders by order number instead. If R2 adds emails, the email is sent while the plain token is still in memory.
 
@@ -79,7 +79,7 @@ CREATE TABLE settings (
   key   text PRIMARY KEY,
   value jsonb NOT NULL
 );
--- ('shipping_cents', 500) placeholder until the owner sets the fee
+-- ('shipping_cents', 300): flat €3.00, confirmed by the owner
 
 CREATE TYPE order_status AS ENUM ('awaiting_payment', 'paid', 'shipped', 'cancelled');
 
@@ -158,7 +158,7 @@ class OrderLineOut(BaseModel):
 
 class OrderOut(BaseModel):         # POST → 201 (new) | 200 (retry); GET /api/orders/{token} → 200 | 404
     order_number: str              # "BH-7K3Q9"
-    token: str | None              # in POST response only; the SPA navigates to /ordre/{token}
+    token: str | None              # in POST response only; the SPA navigates to /order/{token}
     status: Literal["awaiting_payment", "paid", "shipped", "cancelled"]
     lines: list[OrderLineOut]
     subtotal_cents: int
