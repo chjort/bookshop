@@ -1,0 +1,63 @@
+name: Deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Target environment
+        type: choice
+        options: [val, prd]
+        required: true
+      sha:
+        description: Commit SHA already deployed to dev
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/chjort/bookshop
+
+jobs:
+  build:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - run: |
+          docker build --build-arg APP_VERSION=${{ github.sha }} -t $IMAGE:${{ github.sha }} .
+          docker push $IMAGE:${{ github.sha }}
+
+  dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: dev, url: "https://dev.nygaardsvej41.dk" }
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://dev.nygaardsvej41.dk ${{ github.sha }}
+
+  promote:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.env }}
+      url: ${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Deploy and smoke test
+        run: |
+          host=${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}
+          scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ inputs.sha }}" "$host" ${{ inputs.sha }}
+      - name: Tag release
+        if: inputs.env == 'prd'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          last=$(git tag -l 'v*' | sed 's/^v//' | sort -n | tail -1)
+          next="v$(( ${last:-0} + 1 ))"
+          git tag "$next" ${{ inputs.sha }} && git push origin "$next"
+          gh release create "$next" --target ${{ inputs.sha }} --generate-notes
