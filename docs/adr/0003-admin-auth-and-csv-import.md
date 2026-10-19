@@ -51,7 +51,7 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
   - ISBN: digits, with hyphens and spaces stripped; ISBN-10 or ISBN-13 with a valid checksum.
   - Title is required. Author is required.
   - Genre may be empty and is shown as "Øvrige".
-  - Price: dot decimal only (`12.50`; a comma is rejected), more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
+  - Price: `12.50` (dot, as in the real file) or `12,50`, more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
   - Stock (`count`): a whole number of 0 or more; `3` and `3.0` are accepted, `3.5` is rejected.
 - Duplicate ISBNs in one file: every row with that ISBN is skipped and listed (design decision 3).
 - Valid rows are upserted by ISBN (`INSERT ... ON CONFLICT (isbn) DO UPDATE`) in one DB transaction. Invalid rows are skipped. Because of the upsert, re-importing the same file is safe.
@@ -74,7 +74,7 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 | author | `author` | yes | text |
 | isbn | `ISBN` | yes | ISBN-10/13 |
 | genre | `genre` | no | text, empty → "Øvrige" |
-| price_eur | `price` | yes | `12.50` |
+| price_eur | `price` | yes | `12.50` (also `12,50`) |
 | stock | `count` | yes | whole number ≥ 0 (`3` or `3.0`) |
 
 ## Consequences
