@@ -270,7 +270,7 @@ When `paid_email_status` or `shipped_email_status` is `failed`, the order detail
 | Action notes | Paid orders can't be cancelled in Release 1. · This order is complete. · This order was cancelled on {date}. Its stock was released. |
 | Progress | Progress · Placed · Paid · Shipped · Cancelled · Stock reserved · Stock released |
 | Email indicator | Customer email: not yet · Customer email: sending … · Customer email sent {date}, {time} · Customer email not sent. The status change is saved. · Customer email: not sent (emails not set up yet) |
-| Email not sent notice | Email not sent · The {paid|shipped} email to {email} failed. Email the customer yourself. · The paid and shipped emails to {email} failed. Email the customer yourself. · Copy email |
+| Email not sent notice | Email not sent · The {paid\|shipped} email to {email} failed. Email the customer yourself. · The paid and shipped emails to {email} failed. Email the customer yourself. · Copy email |
 | List email marker | ⚠ Email not sent |
 | Dialog paid | Mark order {no} as paid? · Only do this when you have found the payment in your wallet: · {name} gets an email that the payment is confirmed. You can't undo this. · Go back · Mark paid |
 | Dialog shipped | Mark order {no} as shipped? · Ship to: {address} · {name} gets an email that the order is on its way. You can't undo this. · Go back · Mark shipped |
