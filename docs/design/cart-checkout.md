@@ -185,7 +185,7 @@ The QR code is a BIP 21 URI (`bitcoin:{adresse}?amount={btc}`), generated in the
 - Shown with 8 decimals (satoshi precision), Danish format: `0,00059375 BTC`. Round **up** to the next satoshi so the owner never receives less than the EUR total.
 - Copy and the QR code use a dot decimal with no thousands separator (`0.00059375`), because wallets expect that. The screen says "Kopiér beløb" and copies the wallet format.
 - The rate is always labelled with its time: "Kurs: 1 BTC = 64.000,00 € · hentet kl. 23:31".
-- **Rate lock (open):** this spec assumes the BTC amount is fixed when the order is placed and stored with the order, so the payment screen and the owner's admin show the same amount. Release 2 (#2 "Expiring BTC quotes") adds an expiry. The summary step may refresh the rate. If the rate changes between summary and submit, the payment screen shows the new amount with the note "Beløbet er opdateret efter den aktuelle kurs."
+- **Rate lock (open):** this spec assumes the BTC amount is fixed when the order is placed and stored with the order, so the payment screen and the owner's admin show the same amount. Release 2 ("Expiring BTC quotes") adds an expiry. The summary step may refresh the rate. If the rate changes between summary and submit, the payment screen shows the new amount with the note "Beløbet er opdateret efter den aktuelle kurs."
 
 ## 5. States
 
