@@ -14,7 +14,9 @@ flowchart TD
     A --> S[Søg: titel, forfatter eller ISBN]
     A --> P[Næste / forrige side]
     G --> L[Filtreret liste, side 1]
-    S --> R{Resultater?}
+    S --> I{Præcis ISBN-match?}
+    I -- ja --> B
+    I -- nej --> R{Resultater?}
     R -- ja --> L
     R -- nej --> E[Ingen resultater + forslag]
     E --> S
@@ -28,7 +30,7 @@ flowchart TD
     L -. fejl .-> X[Fejlbesked + Prøv igen]
 ```
 
-Filter, search and page live in the URL (`?genre=krimi&q=hansen&side=3`), so Back, reload and shared links restore the same view. Changing search or genre resets to page 1. Search and genre combine (search within a genre).
+Filter, search and page live in the URL (`?genre=krimi&q=hansen&side=3`), so Back, reload and shared links restore the same view. Changing search or genre resets to page 1. Search and genre combine (search within a genre). Default sort is title A–Å with out-of-stock books last; no sort control in R1.
 
 ## 3. Wireframes
 
@@ -48,9 +50,9 @@ Filter, search and page live in the URL (`?genre=krimi&q=hansen&side=3`), so Bac
 |                 | to linjer… titel der…                                   |
 |                 | Forfatter  Forfatter   Forfatter Forfatter              |
 |                 | 12,50 €    8,00 €      19,95 €   14,00 €                |
-|                 | På lager   Få tilbage  Udsolgt   På lager               |
+|                 | På lager   På lager    På lager  Udsolgt                |
 |                 |                                                         |
-|                 |  … (grid, 24 per page per contract)                     |
+|                 |  … (grid; page size per contract; Udsolgt last)         |
 |                 |                                                         |
 |                 |   [‹ Forrige]  1  2  [3]  4  5 … 52  [Næste ›]          |
 +--------------------------------------------------------------------------+
@@ -71,7 +73,7 @@ Filter, search and page live in the URL (`?genre=krimi&q=hansen&side=3`), so Bac
 | Titel…  Titel…               |
 | Forf.   Forf.                |
 | 12,50 € 8,00 €               |
-| På lager Udsolgt             |
+| På lager På lager            |
 |  …                           |
 | [‹ Forrige] Side 3 af 52 [Næste ›] |
 +------------------------------+
@@ -90,7 +92,7 @@ Desktop: a radio-button list in the sidebar inside a `<fieldset>` with legend "G
 | +--------+ +--------+ ...                                             |
 ```
 
-Search submits on Enter or the Søg button (no live search for Release 1). An ISBN match goes straight to the list with one result; open question 2 asks if it should jump to the book page.
+Search submits on Enter or the Søg button (no live search for Release 1). An exact ISBN match (with or without hyphens) goes straight to the book page. Partial ISBNs search normally.
 
 ### 3.5 Empty search result
 
@@ -126,7 +128,7 @@ Desktop                                          Mobile
 +-------------------------------------------+    +----------------------+
 ```
 
-"Læg i kurv" belongs to feature 4; in this feature it may be absent or disabled. Out of stock: the button is replaced by the text "Udsolgt".
+"Læg i kurv" belongs to feature 4; in this feature it may be absent or disabled. Out of stock: no add-to-cart button; the badge "Udsolgt" and the text "Kan ikke lægges i kurven" show instead.
 
 ### 3.7 Placeholder cover
 
@@ -149,11 +151,10 @@ Same 2:3 box as real covers so the grid doesn't jump. Shown when Open Library ha
 
 | Available | Badge (text + icon, not colour alone) |
 |---|---|
-| > 3 | ✓ På lager |
-| 1–3 | ! Få tilbage (threshold: open question 4) |
+| ≥ 1 | ✓ På lager |
 | 0 (incl. all reserved) | – Udsolgt |
 
-Out-of-stock books stay in the list (open question 5), greyed cover at 60 % opacity with the badge still at full contrast.
+No low-stock badge in R1. Out-of-stock books stay in the list, sort last, are marked "Udsolgt" and can't be added to the cart. Their covers are greyed at 60 % opacity, with the badge kept at full contrast. Fuller out-of-stock handling is R2 (#40).
 
 ## 5. States
 
@@ -167,16 +168,17 @@ Out-of-stock books stay in the list (open question 5), greyed cover at 60 % opac
 | No results (search) | Section 3.5. |
 | No results (genre empty) | "Der er ingen bøger i denne genre lige nu." [Se alle bøger] |
 | Empty catalogue | "Butikken er ved at blive fyldt op. Kig forbi igen snart." |
+| ISBN search, exact match | Go straight to the book page (no list in between). |
 | Page out of range (`?side=999`) | Show the last page, or an error with [Gå til første side]. |
 
 ## 6. Edge cases
 
 | Case | Handling |
 |---|---|
-| Thousands of titles | Server-side paging and filtering; page size from contract (24 suggested). Pagination shows first, last and ±2 around current with "…". |
+| Thousands of titles | Server-side paging, filtering and sorting (title A–Å, Udsolgt last); page size per pro-architect's contract. Pagination shows first, last and ±2 around current with "…". |
 | Very long titles / authors | Cards: clamp title to 2 lines and author to 1 with ellipsis; full text in the book page and in the accessible name. Long unbroken words wrap (`overflow-wrap: anywhere`). |
-| ISBN search | Accept ISBN-10/13 with or without hyphens or spaces (`978-87-…`, `97887…`). Show the ISBN hyphenated on the book page if the contract provides it. |
-| Danish letters æøå | Search must match `æ ø å` as typed and case-insensitively (`Ærø` = `ærø`). Whether `aa` matches `å` is open question 3. Sorting uses Danish collation (Æ, Ø, Å after Z). URLs encode the query. |
+| ISBN search | Accept ISBN-10/13 with or without hyphens or spaces (`978-87-…`, `97887…`). An exact match opens the book page directly. Show the ISBN hyphenated on the book page if the contract provides it. |
+| Danish letters æøå | Search must match `æ ø å` as typed and case-insensitively (`Ærø` = `ærø`). Search folds `aa`→`å`, `oe`→`ø`, `ae`→`æ` and ignores case and accents (`Aarhus` finds `Århus`, `Moeller` finds `Møller`, `Jose` finds `José`). Sorting uses Danish collation (Æ, Ø, Å after Z). URLs encode the query. |
 | Empty genre | Shown as "Øvrige" in filter, cards and book page; listed last in the filter. |
 | Missing author | Show nothing instead of "af ". |
 | Whitespace-only search | Treated as no search; shows all books. |
@@ -187,7 +189,7 @@ Out-of-stock books stay in the list (open question 5), greyed cover at 60 % opac
 
 | Key | Danish |
 |---|---|
-| Shop name | Boghandel (final name: open question 1) |
+| Shop name | Boghandel (placeholder until the user names the shop) |
 | Search label (visually hidden) | Søg i bøger |
 | Search placeholder | Søg efter titel, forfatter eller ISBN |
 | Search button | Søg |
@@ -198,7 +200,7 @@ Out-of-stock books stay in the list (open question 5), greyed cover at 60 % opac
 | List heading | Alle bøger / {genre} / Søgeresultater for "{q}" / Søgeresultater for "{q}" i {genre} |
 | Count | {n} bøger · 1 bog |
 | Author prefix | af {forfatter} |
-| Stock | På lager · Få tilbage · Udsolgt |
+| Stock | På lager · Udsolgt · Kan ikke lægges i kurven |
 | Pagination | ‹ Forrige · Næste › · Side {a} af {b} · Gå til side {n} |
 | Pagination nav label | Sider |
 | Loading | Henter bøger … |
@@ -233,18 +235,25 @@ Out-of-stock books stay in the list (open question 5), greyed cover at 60 % opac
 
 | Acceptance criterion | Spec sections |
 |---|---|
-| The book list is paged and loads quickly with thousands of titles. | 3.1, 3.2, 5 (loading skeleton), 6 (thousands of titles), 8 (pagination) |
+| The book list is paged and loads quickly with thousands of titles. | 3.1, 3.2, 5 (loading skeleton), 6 (thousands of titles), 8 (pagination), 10.6–10.7 |
 | Customers can filter by genre. | 2, 3.3, 5 (empty genre), 6 (Øvrige), 7 |
-| Customers can search by title, author or ISBN. | 2, 3.4, 3.5, 6 (ISBN, æøå, whitespace), 7, 8 (search landmark, announcement) |
-| A book page shows the cover (from Open Library or a placeholder), price in EUR and whether it is in stock. | 3.6, 3.7, 4, 5 (book loading/error), 8 (alt text) |
+| Customers can search by title, author or ISBN. | 2, 3.4, 3.5, 5 (exact ISBN), 6 (ISBN, æøå folding, whitespace), 7, 8, 10.2–10.3 |
+| A book page shows the cover (from Open Library or a placeholder), price in EUR and whether it is in stock. | 3.6, 3.7, 4 (På lager / Udsolgt), 5 (book loading/error), 8 (alt text), 10.4–10.5 |
 
-## 10. Open questions (not blockers)
+## 10. Resolved decisions
 
-1. Shop name for the header and page titles: "Boghandel" is a placeholder.
-2. Should an exact ISBN match go straight to the book page?
-3. Should `aa` match `å` (e.g. "Aarhus" vs "Århus")? Diacritic-insensitive search (e.g. `o` matches `ø`)?
-4. Show "Få tilbage" for low stock, and at what threshold? Or just På lager / Udsolgt?
-5. Do out-of-stock books stay in the list, sorted last, or are they hidden? (Release 2 has "out-of-stock handling".)
-6. Default sort order: title A–Å, author, or newest? Is a sort control wanted in Release 1?
-7. Page size (24 suggested) and URL paths (`/bog/{isbn}`) per pro-architect's contract.
-8. Book descriptions: the CSV has none; the book page shows only CSV fields plus cover. Fetch a description from Open Library later?
+Answered by pro-product-owner.
+
+1. **Shop name:** "Boghandel" stays as a placeholder until the user names the shop.
+2. **Exact ISBN match:** goes straight to the book page.
+3. **Search folding:** `aa`→`å`, `oe`→`ø`, `ae`→`æ`; case and accents ignored.
+4. **Stock badge:** no low-stock badge in R1, only "På lager" or "Udsolgt".
+5. **Out of stock:** stays visible, sorts last, is marked "Udsolgt" and can't be added to the cart. Fuller handling in R2 (#40).
+6. **Sort:** title A–Å by default; no sort control in R1.
+7. **Page size and URLs:** follow pro-architect's contract. `/bog/{isbn}` and `?genre=&q=&side=` in this spec are illustrative.
+8. **Book descriptions:** not in R1.
+
+## 11. Later ideas
+
+- Book descriptions (e.g. from Open Library) on the book page.
+- Low-stock badge and sort control.
