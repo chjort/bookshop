@@ -49,12 +49,15 @@ jobs:
   promote:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    concurrency: { group: "promote-${{ inputs.env }}", cancel-in-progress: false }
     environment:
       name: ${{ inputs.env }}
       url: ${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      - name: Check SHA is on main
+        run: git merge-base --is-ancestor ${{ inputs.sha }} origin/main
       - name: Deploy and smoke test
         run: |
           host=${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}

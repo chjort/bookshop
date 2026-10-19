@@ -26,7 +26,8 @@ def healthz(response: Response):
 
 @app.get("/{path:path}", include_in_schema=False)
 def spa(path: str):
-    file = STATIC_DIR / path
-    if path and file.is_file():
+    root = STATIC_DIR.resolve()
+    file = (root / path).resolve()
+    if path and file.is_relative_to(root) and file.is_file():
         return FileResponse(file)
     return FileResponse(STATIC_DIR / "index.html")
