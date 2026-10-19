@@ -25,12 +25,17 @@ Branch protection on `main`: PR required, all checks green, no direct pushes.
 **On merge to main** (`.github/workflows/deploy.yml`):
 1. Build the image once, tag it with the commit SHA, push to GHCR (`ghcr.io/chjort/bookshop:<sha>`).
 2. Deploy to **dev**: call the dev deploy hook with `?imgURL=` for that SHA.
-3. Migrations: the image runs `alembic upgrade head` as the Render pre-deploy command, so a failed migration stops the deploy.
+3. Migrations: the container start command runs `alembic upgrade head && uvicorn ...`. Render's pre-deploy command only exists on paid web services (Render docs, checked 2026-10-19), so it can't be used for dev and val on the free tier; the start command works on every tier. A failed migration exits the container, Render keeps the old instance running, and the smoke test fails the pipeline.
+   - Concurrency: Alembic does not take a lock by default. Each env runs one instance and Render runs one deploy at a time per service, so two migrations can't overlap today. `migrations/env.py` also takes `pg_advisory_lock` around `run_migrations()`, which keeps it safe if we ever scale out.
 4. Smoke test: poll `https://dev.nygaardsvej41.dk/healthz` until it returns 200 with the expected SHA.
 
 **Promote to val**: `workflow_dispatch` with input `sha`, job on GitHub environment `val`. Deploys the same image, then smoke tests.
 
 **Promote to prd**: `workflow_dispatch` with input `sha`, job on GitHub environment `prd` with required reviewer **chjort**. Deploys the same image, smoke tests, then tags the commit with the next `vN` (highest existing `v*` + 1) and creates a GitHub release.
+
+Guards on every promotion:
+- The workflow fails unless `inputs.sha` is on main (`git merge-base --is-ancestor <sha> origin/main`).
+- `concurrency: { group: deploy-<env>, cancel-in-progress: false }` queues runs per environment, so two prd runs can't race on the deploy or on the `vN` tag.
 
 Render services have auto-deploy off; only the pipeline deploys. Deploy hook URLs are GitHub environment secrets `RENDER_DEPLOY_HOOK` in `dev`, `val`, `prd`. `/healthz` returns `{"status":"ok","version":"<sha>"}` and checks the database connection.
 
@@ -47,6 +52,7 @@ flowchart LR
 ## Consequences
 
 - One image goes through all envs, so val and prd run exactly what was tested.
+- Migrations run at container start, so a slow migration delays startup. Render's start command timeout is 15 minutes, which is ample at this size.
 - Migrations must be backward compatible with the previous release (expand, then contract), since the old version runs while the new one starts.
 - Rollback: re-run the promote workflow with the previous SHA (schema changes need a forward fix).
 
