@@ -6,7 +6,7 @@ Feature: #6 · Task: #8 · Release 1 (walking skeleton) · Author: pro-designer
 
 The owner logs in to a private admin area and uploads the stock CSV. Books are created or updated by ISBN. Rows that can't be imported are listed with a reason; the rest are still imported. The UI is in Danish.
 
-Scope for Release 1: one owner account, login, logout, admin home with nav, CSV upload, import result. No password reset, no user management. Exact CSV headers, size limits, rate limiting and sync vs. background import follow pro-architect's contract (no ADR exists yet); this spec covers both a quick and a long-running import.
+Scope for Release 1: one owner account, login, logout, admin home with nav, CSV upload, import result. No password reset, no user management. Headers are matched case-insensitively; comma and semicolon separators are both accepted. Known headers: `title,author,ISBN,genre`; price and stock header names are pending the user. How a few thousand rows import without timing out is pro-architect's call; the UI always shows progress and a result summary. Login is by username, with lockout after repeated failures (thresholds per pro-architect).
 
 ## 2. User flow
 
@@ -18,7 +18,7 @@ flowchart TD
     L -->|submit| V{Credentials ok?}
     V -- no --> LE[Login error, stay on page]
     LE --> L
-    V -- too many tries --> RL[Rate limit message]
+    V -- too many failures --> RL[Lockout message]
     V -- yes --> R[Return to requested page or admin home]
     R --> H
     H --> U[Import page]
@@ -92,8 +92,9 @@ The nav is shared by all admin pages. "Ordrer" links to the order list from feat
 |  Upload din CSV-fil. Bøger opdateres ud fra ISBN: findes      |
 |  ISBN, opdateres bogen; ellers oprettes den.                  |
 |                                                               |
-|  Påkrævede kolonner: titel, forfatter, ISBN, genre,           |
-|  pris (EUR), lager.  (exact headers: see architect contract)  |
+|  Påkrævede kolonner: title, author, ISBN, genre, + pris og    |
+|  lager (navne afventer). Store/små bogstaver er ligegyldige.  |
+|  Komma eller semikolon som skilletegn.                        |
 |                                                               |
 |  CSV-fil                                                      |
 |  +--------------------------------------------------------+  |
@@ -112,12 +113,12 @@ The drop zone is optional sugar. The real control is a native `<input type="file
 
 ```
 |  Importerer boeger.csv …                                      |
-|  [■■■■■■■■■□□□□□□□]  2.400 af 4.000 rækker                    |  <- if progress known
+|  [■■■■■■■■■□□□□□□□]  2.400 af 4.000 rækker                    |
 |  Du kan blive på siden. Luk ikke vinduet.                     |
 |  [ Importer ] (disabled)                                      |
 ```
 
-If the backend gives no progress, show an indeterminate spinner and "Importerer … det kan tage op til et minut."
+Progress is required. Show rows processed of total when the backend reports it. If it can only report phases, show the phase ("Læser fil …", "Gemmer bøger …") with an indeterminate bar. pro-architect chooses the mechanism.
 
 ### 3.5 Import result
 
@@ -137,6 +138,8 @@ If the backend gives no progress, show an indeterminate spinner and "Importerer 
 |  | 14    | 978-87-1234   | Ugyldigt ISBN                   | |
 |  | 230   | 9788702011111 | Pris mangler                    | |
 |  | 231   | 9788702022222 | Lager kan ikke være negativt    | |
+|  | 410   | 9788702033333 | ISBN står flere gange (række 410 og 977) | |
+|  | 977   | 9788702033333 | ISBN står flere gange (række 410 og 977) | |
 |  | …     |               |                                 | |
 |  +-------+---------------+---------------------------------+ |
 |  Viser 1–50 af 27  [Forrige] [Næste]                          |
@@ -159,7 +162,7 @@ Row numbers count the header as row 1, so they match what the owner sees in a sp
 | Total failure | Red banner with reason (see 5); "Intet blev importeret." Form stays with file cleared. |
 | Auth error | Login banner "Forkert brugernavn eller adgangskode." Password cleared, username kept, focus to banner. |
 | Session expired | Redirect to login with info banner "Du er blevet logget ud. Log ind igen." After login, return to the page. If it expired mid-upload, say "Importen blev ikke gennemført. Upload filen igen." |
-| Rate limit / lockout (if the architect adds it) | "For mange forsøg. Prøv igen om {n} minutter." Button disabled until then. |
+| Lockout | After repeated failed logins: red banner "For mange mislykkede forsøg. Login er spærret i {n} minutter." Fields and button disabled until then. Same message whether or not the username exists. |
 | Network / server error | "Noget gik galt. Prøv igen." with [Prøv igen]. |
 | Not logged in on any /admin URL | Redirect to login; never flash admin content. |
 
@@ -169,20 +172,22 @@ Row numbers count the header as row 1, so they match what the owner sees in a sp
 |---|---|---|
 | Wrong file type (.xlsx, .txt) | Client blocks before upload; server checks too. | "Filen skal være en CSV-fil (.csv)." |
 | Empty file / header only | Total failure. | "Filen er tom." / "Filen indeholder ingen bøger." |
-| Huge file (thousands of rows) | Must not time out (AC4). Show progress/spinner; keep the UI responsive; paginate the rejected table at 50 rows. | "Importerer … det kan tage op til et minut." |
+| Large file (a few thousand rows) | Must not time out (AC4). Show progress; keep the UI responsive; paginate the rejected table at 50 rows. | "Importerer … det kan tage op til et minut." |
 | Too big over server limit | Total failure. | "Filen er for stor. Maks {størrelse}." |
 | Missing required column | Total failure, name the missing columns. | "Kolonnen ‘{navn}’ mangler. Påkrævede kolonner: …" |
 | Unknown extra columns | Ignored, no error. | — |
 | Bad ISBN (wrong length or checksum) | Row rejected. | "Ugyldigt ISBN" |
 | Missing ISBN | Row rejected. | "ISBN mangler" |
 | ISBN already in shop | Update the book (counts as "opdateret"). | — |
-| Same ISBN twice in one file | Follow architect; suggested: last row wins and the earlier one is listed. | "ISBN optræder flere gange i filen; række {n} blev brugt" |
-| Price with comma (`12,50`) or dot (`12.50`) | Accept both if the contract allows; else reject the row. | "Ugyldig pris: ‘{værdi}’" |
-| Missing / zero / negative price | Row rejected (zero: architect decides). | "Pris mangler" / "Pris skal være større end 0" |
+| Same ISBN twice (or more) in one file | Reject every row with that ISBN; list each one. | "ISBN står flere gange (række {a} og {b})" |
+| Price with comma (`12,50`) or dot (`12.50`) | Both accepted. Anything else unparseable is rejected. | "Ugyldig pris: ‘{værdi}’" |
+| Missing / zero / negative price | Row rejected. 0 is invalid. | "Pris mangler" / "Pris skal være større end 0" |
+| Empty genre | Allowed; shown as "Øvrige". | — |
+| Header case (`ISBN`, `isbn`, `Isbn`) | Matched case-insensitively. | — |
 | Negative or non-integer stock | Row rejected. | "Lager kan ikke være negativt" / "Lager skal være et helt tal" |
 | Missing title | Row rejected. | "Titel mangler" |
 | Non-UTF-8 encoding (e.g. Windows-1252 from Excel) | Total failure unless backend detects it. Never import mojibake (Ã¦ for æ). | "Filen er ikke i UTF-8. Gem den som ‘CSV UTF-8’ og prøv igen." |
-| Semicolon delimiter (Danish Excel default) | Follow architect; if unsupported, total failure. | "Filen bruger semikolon. Brug komma som skilletegn." |
+| Comma or semicolon separator | Both accepted. | — |
 | Every row rejected | Partial result screen with 0/0/N and red banner. | "Ingen rækker blev importeret." |
 
 ## 6. Danish UI copy
@@ -198,7 +203,10 @@ Row numbers count the header as row 1, so they match what the owner sees in a sp
 | Login error | Forkert brugernavn eller adgangskode. |
 | Required field | Udfyld {felt}. |
 | Session expired | Du er blevet logget ud. Log ind igen. |
-| Rate limit | For mange forsøg. Prøv igen om {n} minutter. |
+| Lockout | For mange mislykkede forsøg. Login er spærret i {n} minutter. |
+| Empty genre | Øvrige |
+| Duplicate ISBN | ISBN står flere gange (række {a} og {b}) |
+| Progress | {a} af {n} rækker · Læser fil … · Gemmer bøger … |
 | Nav | Import · Ordrer · Log ud |
 | Home heading | Velkommen |
 | Catalogue card | Katalog · {n} bøger · Sidste import: {dato} kl. {tid} |
@@ -240,17 +248,20 @@ Numbers use Danish formatting: `3.912`, `12,50 €`, dates `19.10.2026`.
 
 | Acceptance criterion | Spec sections |
 |---|---|
-| Only the owner can reach admin pages, after logging in. | 2 (auth gate), 3.1, 3.2, 4 (auth error, session expired, not logged in, rate limit), 7 |
-| Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (oprettet / opdateret), 5 (ISBN already in shop, duplicate ISBN) |
-| Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5 (rejected table), 4 (partial failure), 5 (row-level errors), 6 |
-| A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (huge file) |
+| Only the owner can reach admin pages, after logging in. | 2 (auth gate), 3.1, 3.2, 4 (auth error, session expired, not logged in, lockout), 7, 9.5 |
+| Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (oprettet / opdateret), 5 (ISBN already in shop, header case, separators, price format), 9.1–9.2 |
+| Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5 (rejected table incl. duplicates), 4 (partial failure), 5 (row-level errors), 6, 9.3, 9.6 |
+| A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (large file), 9.4 |
 
-## 9. Open questions
+## 9. Resolved decisions
 
-1. Exact CSV headers and delimiter (comma vs semicolon). The example CSV has only title, author, ISBN, genre: no price or stock columns (pro-qa asked the user).
-2. Price format: accept both `12,50` and `12.50`?
-3. Duplicate ISBN within one file: last row wins, or reject both?
-4. Sync import or background job with progress? Max file size?
-5. Login rate limit/lockout in Release 1?
-6. Is a price of 0 valid? Is a missing genre allowed?
-7. Is the login a username or an email?
+Answered by pro-product-owner.
+
+1. **Headers and separators:** headers matched case-insensitively; comma or semicolon accepted. Sample file is comma-separated with `title,author,ISBN,genre`. Price and stock header names are pending the user.
+2. **Price format:** `12,50` and `12.50` are both accepted.
+3. **Duplicate ISBN in one file:** all rows with that ISBN are rejected and each is listed in the error table.
+4. **Large files:** a few thousand rows import without timing out, with clear progress and a result summary. pro-architect decides how.
+5. **Login:** username (Brugernavn). Lockout after repeated failures, with a Danish lockout message (section 4).
+6. **Row rules:** price 0 is invalid. Empty genre is allowed and shown as "Øvrige".
+
+Still open: price and stock header names (waiting on the user); lockout threshold and duration (pro-architect).
