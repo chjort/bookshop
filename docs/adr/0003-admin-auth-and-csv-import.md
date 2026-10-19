@@ -51,8 +51,8 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
   - ISBN: digits, with hyphens and spaces stripped; ISBN-10 or ISBN-13 with a valid checksum.
   - Title is required. Author is required.
   - Genre may be empty and is shown as "Øvrige".
-  - Price: `12,50` or `12.50`, more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
-  - Stock: an integer of 0 or more.
+  - Price: dot decimal only (`12.50`; a comma is rejected), more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
+  - Stock (`count`): a whole number of 0 or more; `3` and `3.0` are accepted, `3.5` is rejected.
 - Duplicate ISBNs in one file: every row with that ISBN is skipped and listed (design decision 3).
 - Valid rows are upserted by ISBN (`INSERT ... ON CONFLICT (isbn) DO UPDATE`) in one DB transaction. Invalid rows are skipped. Because of the upsert, re-importing the same file is safe.
 - Response (Pydantic `ImportResult`), 200:
@@ -64,9 +64,9 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
   - The error texts are in Danish so they can be shown directly.
 - No queue in R1. The UI shows a spinner (design decision 8). If imports grow past roughly 30 s, revisit with a background job.
 
-### CSV columns (placeholder)
+### CSV columns
 
-The final header names and price format must be confirmed from the user's real file. The sample has only `title, author, ISBN, genre`.
+Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers with a dot as decimal separator.
 
 | Field | Header (proposed) | Required | Format |
 |---|---|---|---|
@@ -74,8 +74,8 @@ The final header names and price format must be confirmed from the user's real f
 | author | `author` | yes | text |
 | isbn | `ISBN` | yes | ISBN-10/13 |
 | genre | `genre` | no | text, empty → "Øvrige" |
-| price_eur | **TBD** (e.g. `price`) | yes | `12.50` or `12,50` |
-| stock | **TBD** (e.g. `stock`) | yes | integer ≥ 0 |
+| price_eur | `price` | yes | `12.50` |
+| stock | `count` | yes | whole number ≥ 0 (`3` or `3.0`) |
 
 ## Consequences
 
