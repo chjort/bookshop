@@ -41,3 +41,17 @@ Small Danish webshop: Python backend, React frontend, Postgres. Three environmen
 2. Create the paid Postgres instance. Then run the provisioning SQL (pro-developer/pro-architect will supply `infra/db/provision.sql`) to create the three databases and roles.
 3. Create web services `bookshop-dev`, `bookshop-val`, `bookshop-prd` (Docker, auto-deploy **off**), set env vars per service.
 4. Add custom domains in Render, then at one.com: CNAME `dev` and `val` to their `onrender.com` hosts, A record for apex and CNAME `www` for prd, as Render shows. Wait for Render to verify and issue TLS.
+
+## Update 2026-10-20: domains and settings
+
+The shop is called probooks. Each environment has its own subdomain of `nygaardsvej41.dk` (DNS at one.com):
+
+| Env | Address | DNS record at one.com |
+|-----|---------|------------------------|
+| dev | `probooks.dev.nygaardsvej41.dk` | CNAME to the dev Render service's `onrender.com` host |
+| val | `probooks.val.nygaardsvej41.dk` | CNAME to the val Render service's `onrender.com` host |
+| prd | `probooks.nygaardsvej41.dk` | CNAME to the prd Render service's `onrender.com` host |
+
+Render issues the TLS certificates. Each service also sets `PUBLIC_BASE_URL` to its address, used for links in emails. New secret env var `ORDER_TOKEN_SECRET` (ADR 0004). The flat shipping fee starts at 3,00 € (`shipping_cents = 300`).
+
+The repo is public, so the GitHub environments `dev`, `val` and `prd` exist; `prd` requires approval from chjort and deploys only from main. By team rule only the user approves prd.
