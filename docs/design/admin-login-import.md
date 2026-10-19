@@ -4,7 +4,7 @@ Feature: #6 · Task: #8 · Release 1 (walking skeleton) · Author: pro-designer
 
 ## 1. Purpose
 
-The owner logs in to a private admin area and uploads the stock CSV. Books are created or updated by ISBN. Per pro-architect (#7) the import is all-or-nothing: if any row fails, nothing is imported and every failing row is listed with its reason. See 9.7 for the conflict with AC3. The UI is in Danish.
+The owner logs in to a private admin area and uploads the stock CSV. Books are created or updated by ISBN. Valid rows are imported; invalid rows are skipped and listed with their reason (AC3). Only file-level problems (not UTF-8, missing headers, over 5 MB) reject the whole file. The UI is in Danish.
 
 Scope for Release 1: one owner account, login, logout, admin home with nav, CSV upload, import result. No password reset, no user management. Headers are matched case-insensitively; comma and semicolon separators are both accepted. Known headers: `title,author,ISBN,genre`; price and stock header names are pending the user. The import is one synchronous request taking a few seconds; the UI shows a spinner (no progress bar) and then a result summary. Max file size 5 MB, UTF-8 only. Login is by username; 5 failed logins lock login for 15 minutes, shown with the same generic error. Sessions last 7 days.
 
@@ -27,10 +27,10 @@ flowchart TD
     FE --> U
     F -- ok --> S[Upload + import in progress]
     S --> X{Server result}
-    X -- file rejected: encoding, headers, over 5 MB --> TF[File error: nothing imported]
+    X -- file rejected: not UTF-8, missing headers, over 5 MB --> TF[File error: nothing imported]
     X -- all rows ok --> OK[Success summary]
-    X -- any row invalid --> RF[Row errors: nothing imported + row error table]
-    RF --> U
+    X -- some rows invalid --> PF[Partial success: valid rows imported + skipped rows table]
+    PF --> U
     X -- session expired --> SE[Login page with notice, then back to import]
     TF --> U
     OK --> U
@@ -122,27 +122,17 @@ Spinner only, no progress bar: the import is one synchronous request of a few se
 
 ### 3.5 Import result
 
-Success (every row valid):
-
 ```
 +--------------------------------------------------------------+
-|  [✓] Import færdig: boeger.csv                                |
-|  +-----------+  +-----------+                                 |
-|  | 3.912     |  | 61        |                                 |
-|  | oprettet  |  | opdateret |                                 |
-|  +-----------+  +-----------+                                 |
-|  [ Importer en ny fil ]                                       |
-+--------------------------------------------------------------+
-```
-
-Row errors (any row invalid, nothing imported):
-
-```
-+--------------------------------------------------------------+
-|  [!] Intet blev importeret. 27 rækker har fejl.               |
-|      Ret rækkerne i filen og upload den igen.                 |
+|  Import færdig: boeger.csv                                    |
+|  [!] 27 rækker blev ikke importeret. Resten er importeret.    |
 |                                                               |
-|  Rækker med fejl (27)                                         |
+|  +-----------+  +-----------+  +-----------+                 |
+|  | 3.912     |  | 61        |  | 27        |                 |
+|  | oprettet  |  | opdateret |  | afvist    |                 |
+|  +-----------+  +-----------+  +-----------+                 |
+|                                                               |
+|  Afviste rækker (27)                                          |
 |  +-------+---------------+---------------------------------+ |
 |  | Række | ISBN          | Årsag                           | |
 |  +-------+---------------+---------------------------------+ |
@@ -153,11 +143,11 @@ Row errors (any row invalid, nothing imported):
 |  | 977   | 9788702033333 | ISBN står flere gange (række 410 og 977) | |
 |  +-------+---------------+---------------------------------+ |
 |  Viser 1–27 af 27  [Forrige] [Næste]                          |
-|  [ Upload rettet fil ]                                        |
+|  [ Importer en ny fil ]                                       |
 +--------------------------------------------------------------+
 ```
 
-Row numbers count the header as row 1, matching a spreadsheet. The table pages at 50 rows.
+With no skipped rows, the banner is green ("Alle rækker blev importeret.") and the table is hidden; "afvist" shows 0. Row numbers count the header as row 1, matching a spreadsheet. The table pages at 50 rows.
 
 ## 4. UI states
 
@@ -166,9 +156,10 @@ Row numbers count the header as row 1, matching a spreadsheet. The table pages a
 | Empty (no import yet) | Home: "Ingen bøger endnu. Importer din første CSV-fil." Import page: upload form only. |
 | Loading (login) | Button shows "Logger ind …", disabled. |
 | Loading (import) | Spinner and "Importerer {filnavn} … Det tager et par sekunder." Form disabled; no double submit. No progress bar. |
-| Success | Section 3.5 success: counts created and updated; green banner "Alle rækker blev importeret." |
-| Row errors (all-or-nothing) | Section 3.5 row errors: red banner "Intet blev importeret. {n} rækker har fejl." plus the full list of failing rows. The catalogue is unchanged. |
-| File error | Red banner with the reason (too big, not UTF-8, wrong type, empty, missing column) and "Intet blev importeret." File cleared. |
+| Success | Section 3.5 with afvist 0; green banner "Alle rækker blev importeret." |
+| Partial success | Section 3.5: valid rows imported; amber banner "{n} rækker blev ikke importeret. Resten er importeret." plus the skipped rows table. |
+| No valid rows | Section 3.5 with 0 oprettet, 0 opdateret; red banner "Ingen rækker blev importeret." plus the table. |
+| File error (whole file rejected) | Red banner with the reason (over 5 MB, not UTF-8, missing headers; also wrong type or empty) and "Intet blev importeret." File cleared. |
 | Auth error | "Forkert brugernavn eller adgangskode." Password cleared, username kept, focus to banner. |
 | Lockout (5 failures, 15 min) | Exactly the same as auth error: same generic message, form stays enabled. No separate lockout message, so the lock isn't revealed (pro-architect, #7). |
 | Session expired (after 7 days) | Redirect to login with info banner "Din session er udløbet. Log ind igen." After login, return to the requested page. If it expired during an upload: "Importen blev ikke gennemført. Upload filen igen." |
@@ -197,7 +188,8 @@ Row numbers count the header as row 1, matching a spreadsheet. The table pages a
 | Missing title | Row rejected. | "Titel mangler" |
 | Not UTF-8 (e.g. Windows-1252 from Excel) | File rejected; nothing imported. Never import garbled characters (Ã¦ for æ). | "Filen er ikke gemt som UTF-8. Gem den som ‘CSV UTF-8’ i Excel, og prøv igen." |
 | Comma or semicolon separator | Both accepted. | — |
-| One or more rows invalid | Whole file rejected (all-or-nothing); every failing row listed. | "Intet blev importeret. {n} rækker har fejl." |
+| One or more rows invalid | Those rows skipped and listed; valid rows imported. | "{n} rækker blev ikke importeret. Resten er importeret." |
+| Every row invalid | Nothing imported; all rows listed. | "Ingen rækker blev importeret." |
 
 ## 6. Danish UI copy
 
@@ -228,12 +220,12 @@ Row numbers count the header as row 1, matching a spreadsheet. The table pages a
 | Choose file / drop | Vælg fil / eller træk filen hertil |
 | Import button / busy | Importer / Importerer … |
 | Result heading | Import færdig: {filnavn} |
-| Counters | oprettet · opdateret |
+| Counters | oprettet · opdateret · afvist |
 | All ok | Alle rækker blev importeret. |
-| Row errors | Intet blev importeret. {n} rækker har fejl. Ret rækkerne i filen og upload den igen. |
+| Partial | {n} rækker blev ikke importeret. Resten er importeret. |
+| No valid rows | Ingen rækker blev importeret. |
 | Total failure | Intet blev importeret. |
-| Error table | Rækker med fejl · Række · ISBN · Årsag |
-| Retry | Upload rettet fil |
+| Skipped table | Afviste rækker · Række · ISBN · Årsag |
 | Pager | Viser {a}–{b} af {n} · Forrige · Næste |
 | Again | Importer en ny fil |
 | Generic error | Noget gik galt. Prøv igen. · Prøv igen |
@@ -262,7 +254,7 @@ Numbers use Danish formatting: `3.912`, `12,50 €`, dates `19.10.2026`.
 |---|---|
 | Only the owner can reach admin pages, after logging in. | 2 (auth gate), 3.1, 3.2, 4 (auth error, lockout, session expired, not logged in), 7, 9.5, 9.9–9.10 |
 | Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (oprettet / opdateret), 5 (ISBN already in shop, header case, separators, price format), 9.1–9.2 |
-| Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5 (row errors), 4 (row errors), 5, 6. **Partly met:** rows are listed with reasons, but per #7 the rest are *not* imported (all-or-nothing). See 9.7. |
+| Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5, 4 (partial success, no valid rows), 5 (row-level errors), 6, 9.3, 9.6, 9.7. **Fully met.** |
 | A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (large file, over 5 MB), 9.4, 9.8 |
 
 ## 9. Resolved decisions
@@ -278,9 +270,9 @@ Answered by pro-product-owner.
 
 From pro-architect (#7):
 
-7. **All-or-nothing import:** one synchronous request. If any row fails, nothing is imported and every failing row is listed. **This conflicts with AC3 on #6 ("the rest are still imported") and with decision 3's wording.** pro-product-owner needs to update the AC or ask pro-architect to change the decision.
+7. **Partial import (AC3 stands, ruled by pro-product-owner):** one synchronous request with a spinner. Valid rows are imported; invalid rows are skipped and listed with reasons. Only file-level problems reject the whole file: not UTF-8, missing headers, or over 5 MB. This replaces pro-architect's all-or-nothing proposal.
 8. **File limits:** at most 5 MB, UTF-8 only. Spinner during the import of a few seconds, no progress bar (this replaces decision 4's progress requirement).
 9. **Lockout:** 5 failed logins lock login for 15 minutes. While locked, the same generic login error is shown (this replaces the separate lockout message).
 10. **Session:** lasts 7 days, then the session-expired state applies.
 
-Still open: price and stock header names (waiting on the user); the AC3 conflict (decision 7).
+Still open: price and stock header names (waiting on the user).
