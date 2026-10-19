@@ -36,9 +36,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: { name: dev, url: "https://dev.nygaardsvej41.dk" }
+    env:
+      HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
     steps:
+      - if: env.HOOK == ''
+        run: echo "::notice::RENDER_DEPLOY_HOOK not set for dev; skipping deploy until Render is set up (#4)."
       - uses: actions/checkout@v4
-      - run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://dev.nygaardsvej41.dk ${{ github.sha }}
+        if: env.HOOK != ''
+      - if: env.HOOK != ''
+        run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://dev.nygaardsvej41.dk ${{ github.sha }}
 
   promote:
     if: github.event_name == 'workflow_dispatch'
