@@ -6,7 +6,7 @@ Feature: #6 · Task: #8 · Release 1 (walking skeleton) · Author: pro-designer
 
 The owner logs in to a private admin area and uploads the stock CSV. Books are created or updated by ISBN. Valid rows are imported; invalid rows are skipped and listed with their reason (AC3). Only file-level problems (not UTF-8, missing headers, over 5 MB) reject the whole file. The UI is in Danish.
 
-Scope for Release 1: one owner account, login, logout, admin home with nav, CSV upload, import result. No password reset, no user management. Headers are matched case-insensitively; comma and semicolon separators are both accepted. Known headers: `title,author,ISBN,genre`; price and stock header names are pending the user. The import is one synchronous request taking a few seconds; the UI shows a spinner (no progress bar) and then a result summary. Max file size 5 MB, UTF-8 only. Login is by username; 5 failed logins lock login for 15 minutes, shown with the same generic error. Sessions last 7 days.
+Scope for Release 1: one owner account, login, logout, admin home with nav, CSV upload, import result. No password reset, no user management. Headers are matched case-insensitively; comma and semicolon separators are both accepted. Required headers: `title,author,ISBN,genre,price,count` (`count` is the stock count; there is no `quantity` column). Prices use a dot (`12.50`); a comma (`12,50`) is also accepted. `count` may be written as a decimal (`3` or `3.0`) but must be a whole number. The import is one synchronous request taking a few seconds; the UI shows a spinner (no progress bar) and then a result summary. Max file size 5 MB, UTF-8 only. Login is by username; 5 failed logins lock login for 15 minutes, shown with the same generic error. Sessions last 7 days.
 
 ## 2. User flow
 
@@ -93,8 +93,8 @@ The nav is shared by all admin pages. "Ordrer" links to the order list from feat
 |  Upload din CSV-fil. Bøger opdateres ud fra ISBN: findes      |
 |  ISBN, opdateres bogen; ellers oprettes den.                  |
 |                                                               |
-|  Påkrævede kolonner: title, author, ISBN, genre, + pris og    |
-|  lager (navne afventer). Store/små bogstaver er ligegyldige.  |
+|  Påkrævede kolonner: title, author, ISBN, genre, price,       |
+|  count. Store/små bogstaver er ligegyldige.                  |
 |  Komma eller semikolon som skilletegn.                        |
 |                                                               |
 |  CSV-fil                                                      |
@@ -138,7 +138,8 @@ Spinner only, no progress bar: the import is one synchronous request of a few se
 |  +-------+---------------+---------------------------------+ |
 |  | 14    | 978-87-1234   | Ugyldigt ISBN                   | |
 |  | 230   | 9788702011111 | Pris mangler                    | |
-|  | 231   | 9788702022222 | Lager kan ikke være negativt    | |
+|  | 231   | 9788702022222 | Antal kan ikke være negativt    | |
+|  | 232   | 9788702044444 | Antal skal være et helt tal     | |
 |  | 410   | 9788702033333 | ISBN står flere gange (række 410 og 977) | |
 |  | 977   | 9788702033333 | ISBN står flere gange (række 410 og 977) | |
 |  +-------+---------------+---------------------------------+ |
@@ -180,11 +181,14 @@ With no skipped rows, the banner is green ("Alle rækker blev importeret.") and 
 | Missing ISBN | Row rejected. | "ISBN mangler" |
 | ISBN already in shop | Update the book (counts as "opdateret"). | — |
 | Same ISBN twice (or more) in one file | Reject every row with that ISBN; list each one. | "ISBN står flere gange (række {a} og {b})" |
-| Price with comma (`12,50`) or dot (`12.50`) | Both accepted. Anything else unparseable is rejected. | "Ugyldig pris: ‘{værdi}’" |
+| Price with dot (`12.50`, the owner's format) or comma (`12,50`) | Both accepted. Anything else unparseable is rejected. | "Ugyldig pris: ‘{værdi}’" |
 | Missing / zero / negative price | Row rejected. 0 is invalid. | "Pris mangler" / "Pris skal være større end 0" |
 | Empty genre | Allowed; shown as "Øvrige". | — |
 | Header case (`ISBN`, `isbn`, `Isbn`) | Matched case-insensitively. | — |
-| Negative or non-integer stock | Row rejected. | "Lager kan ikke være negativt" / "Lager skal være et helt tal" |
+| `count` written as `3` or `3.0` | Accepted as 3. | — |
+| Fractional `count` (`3.5`) | Row rejected. | "Antal skal være et helt tal" |
+| Negative `count` (`-1`, `-1.0`) | Row rejected. 0 is valid (shown as Udsolgt). | "Antal kan ikke være negativt" |
+| Missing or unparseable `count` | Row rejected. | "Antal mangler" / "Ugyldigt antal: ‘{værdi}’" |
 | Missing title | Row rejected. | "Titel mangler" |
 | Not UTF-8 (e.g. Windows-1252 from Excel) | File rejected; nothing imported. Never import garbled characters (Ã¦ for æ). | "Filen er ikke gemt som UTF-8. Gem den som ‘CSV UTF-8’ i Excel, og prøv igen." |
 | Comma or semicolon separator | Both accepted. | — |
@@ -207,6 +211,9 @@ With no skipped rows, the banner is green ("Alle rækker blev importeret.") and 
 | Lockout | (same as login error) |
 | Empty genre | Øvrige |
 | Duplicate ISBN | ISBN står flere gange (række {a} og {b}) |
+| Count not whole | Antal skal være et helt tal |
+| Count negative | Antal kan ikke være negativt |
+| Count missing / invalid | Antal mangler / Ugyldigt antal: ‘{værdi}’ |
 | Import busy | Importerer {filnavn} … Det tager et par sekunder. |
 | Nav | Import · Ordrer · Log ud |
 | Home heading | Velkommen |
@@ -253,7 +260,7 @@ Numbers use Danish formatting: `3.912`, `12,50 €`, dates `19.10.2026`.
 | Acceptance criterion | Spec sections |
 |---|---|
 | Only the owner can reach admin pages, after logging in. | 2 (auth gate), 3.1, 3.2, 4 (auth error, lockout, session expired, not logged in), 7, 9.5, 9.9–9.10 |
-| Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (oprettet / opdateret), 5 (ISBN already in shop, header case, separators, price format), 9.1–9.2 |
+| Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (oprettet / opdateret), 5 (ISBN already in shop, header case, separators, price format, count format), 9.1–9.2, 9.11 |
 | Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5, 4 (partial success, no valid rows), 5 (row-level errors), 6, 9.3, 9.6, 9.7. **Fully met.** |
 | A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (large file, over 5 MB), 9.4, 9.8 |
 
@@ -261,8 +268,8 @@ Numbers use Danish formatting: `3.912`, `12,50 €`, dates `19.10.2026`.
 
 Answered by pro-product-owner.
 
-1. **Headers and separators:** headers matched case-insensitively; comma or semicolon accepted. Sample file is comma-separated with `title,author,ISBN,genre`. Price and stock header names are pending the user.
-2. **Price format:** `12,50` and `12.50` are both accepted.
+1. **Headers and separators:** headers matched case-insensitively; comma or semicolon accepted. Required columns are `title,author,ISBN,genre,price,count` (confirmed by the user). Stock is `count`, not `quantity`.
+2. **Price format:** the owner writes `12.50` (dot). `12,50` (comma) is still accepted.
 3. **Duplicate ISBN in one file:** all rows with that ISBN are rejected and each is listed in the error table.
 4. **Large files:** a few thousand rows import without timing out, with clear progress and a result summary. pro-architect decides how.
 5. **Login:** username (Brugernavn). Lockout after repeated failures, with a Danish lockout message (section 4).
@@ -275,4 +282,20 @@ From pro-architect (#7):
 9. **Lockout:** 5 failed logins lock login for 15 minutes. While locked, the same generic login error is shown (this replaces the separate lockout message).
 10. **Session:** lasts 7 days, then the session-expired state applies.
 
-Still open: price and stock header names (waiting on the user).
+From the user and pro-product-owner:
+
+11. **Count format:** `count` values may be decimals. `3` and `3.0` are both 3. Any fractional value (`3.5`) rejects the row with "Antal skal være et helt tal". Negative values reject the row.
+
+Nothing is open.
+
+## 10. Example CSV
+
+```csv
+title,author,ISBN,genre,price,count
+Kongens Fald,Johannes V. Jensen,9788702011111,Klassikere,12.50,3
+Hærværk,Tom Kristensen,9788702022222,Klassikere,9.95,1.0
+Ternet Ninja,Anders Matthesen,9788702033333,Børn,15.00,0
+Halv bog,Ukendt,9788702044444,,8.00,3.5
+```
+
+Rows 2–4 import (row 4 shows as Udsolgt; empty genre would show as Øvrige). Row 5 is rejected: "Antal skal være et helt tal".
