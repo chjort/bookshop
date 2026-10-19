@@ -29,7 +29,7 @@ Status labels and badges (text is always shown, colour is only extra):
 | awaiting_payment | Awaiting payment | amber outline, ⏳ | Mark paid · Cancel order |
 | paid | Paid | blue, ✓ | Mark shipped |
 | shipped | Shipped | green, ✓✓ | none |
-| cancelled | Cancelled | grey, strikethrough-free, ✕ | none |
+| cancelled | Cancelled | grey, ✕ | none |
 
 ## 3. Wireframes
 
@@ -70,7 +70,7 @@ Mobile (cards, one per order)
 ```
 
 - Default filter: **Awaiting payment** (the work queue). Filter is in the URL (`/admin/orders?status=paid`) so reload/back keep it. Counts per status in the filter buttons.
-- Sort: newest first within the filter. Awaiting payment shows oldest first? No: keep newest first everywhere for one simple rule (open question Q4).
+- Sort: newest first within every filter, one simple rule (see Q4).
 - The whole row (and the order number as a link) opens the detail page. No status-changing buttons in the list in R1: every action happens on the detail page, where the full order is visible. This avoids mis-clicks in a dense table.
 - "Find order" matches the order number exactly (case-insensitive, with or without `BH-`, ignoring spaces) or a substring of name/email. Needed to match a wallet note to an order.
 - Pagination 25 per page (only if the API pages; see Q3).
