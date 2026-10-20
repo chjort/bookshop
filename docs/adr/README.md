@@ -4,5 +4,6 @@
 |---|---|---|
 | [0001](0001-hosting-and-environments.md) | Hosting and environments | Proposed |
 | [0002](0002-ci-cd-pipeline.md) | CI/CD pipeline | Proposed |
+| [0005](0005-order-emails.md) | Order emails | Proposed |
 
 Upcoming: data model, API.
