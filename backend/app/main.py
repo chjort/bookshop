@@ -10,6 +10,7 @@ from app import admin
 from app.db import engine
 
 VERSION = os.environ.get("APP_VERSION", "dev")
+APP_ENV = os.environ.get("APP_ENV", "local")
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).parent.parent / "static"))
 
 app = FastAPI()
@@ -20,11 +21,12 @@ app.include_router(admin.router)
 def healthz(response: Response):
     try:
         with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
+            db = conn.execute(text("SELECT current_database()")).scalar_one()
     except SQLAlchemyError:
         response.status_code = 503
-        return {"status": "db_unavailable", "version": VERSION}
-    return {"status": "ok", "version": VERSION}
+        return {"status": "db_unavailable", "version": VERSION, "env": APP_ENV}
+    # Database name only; never the host, user, password or URL.
+    return {"status": "ok", "version": VERSION, "env": APP_ENV, "db": db}
 
 
 @app.get("/{path:path}", include_in_schema=False)
