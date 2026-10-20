@@ -37,3 +37,7 @@ To come in ADR 0003.
 ## API
 
 To come in ADR 0004.
+
+## Order emails
+
+Paid and shipped emails go out through Brevo's HTTP API (proposal, needs the user's confirmation) from `orders@mail.nygaardsvej41.dk`. The status change commits first; the email is sent after commit and its result saved in `paid_email_status` / `shipped_email_status`. dev and val only send to `EMAIL_ALLOWLIST`. See [ADR 0005](adr/0005-order-emails.md).
