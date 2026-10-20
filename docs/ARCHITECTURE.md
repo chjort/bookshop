@@ -38,6 +38,10 @@ To come in ADR 0003.
 
 To come in ADR 0004.
 
+## Order emails
+
+Paid and shipped emails go out through Brevo's HTTP API (proposal, needs the user's confirmation) from `orders@mail.nygaardsvej41.dk`. The status change commits first; the email is sent after commit and its result saved in `paid_email_status` / `shipped_email_status`. dev and val only send to `EMAIL_ALLOWLIST`. See [ADR 0005](adr/0005-order-emails.md).
+
 ## Order handling
 
 Admin list `GET /api/admin/orders?status=&q=&page=` (25 per page, counts per status) and detail by order number. `POST .../paid|ship|cancel` each run one conditional `UPDATE ... WHERE status = expected`; otherwise 409 `invalid_transition` with `current_status` and `status_changed_at`. Cancel restores stock in the same transaction. Expired session: 401, nothing applied. See [ADR 0007](adr/0007-order-handling.md).

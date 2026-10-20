@@ -196,3 +196,9 @@ Public `POST /api/orders` takes `Content-Type: application/json` only. Rate limi
 - A database leak alone doesn't expose order links. Rotating `ORDER_TOKEN_SECRET` breaks existing order links, so it's rotated only if leaked.
 - New env var `ORDER_TOKEN_SECRET` per env (add to ADR 0001's list).
 - Owner reconciles payments by order number and exact sats amount in their wallet.
+
+## Amendment (2026-10-20, ADR 0005): `address_line2`
+
+- New nullable column: `ALTER TABLE orders ADD COLUMN address_line2 text;` (migration in the order emails feature).
+- Checkout gets an optional "Address line 2" input. API: `address_line2: constr(max_length=200) | None = None`. Blank is stored as `NULL`.
+- Shown under `address_line` in the order emails, and on the admin order view, only when it's set.
