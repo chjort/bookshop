@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { navigate, useLocation } from "../router.js";
 import * as api from "./api.js";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -6,23 +7,8 @@ const PAGE = 50;
 const GENERIC = "Something went wrong. Please try again.";
 const num = (n) => n.toLocaleString("en-GB");
 
-function navigate(path) {
-  window.history.pushState({}, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
-}
-
-function usePath() {
-  const [path, setPath] = useState(window.location.pathname);
-  useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-  return path;
-}
-
 export default function Admin() {
-  const path = usePath();
+  const { path } = useLocation();
   const [user, setUser] = useState(undefined); // undefined = checking
   const [notice, setNotice] = useState("");
 
