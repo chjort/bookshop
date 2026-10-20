@@ -1,6 +1,6 @@
 # ADR 0005: Order emails
 
-Status: Proposed (provider choice needs the user's confirmation via pro-product-owner) · Author: pro-architect · Task: #31 (feature #30) · Design: #32 (emails), PR #53 (order handling)
+Status: Proposed (provider choice needs the user's confirmation via pro-product-owner) · Amends: ADR 0004 (`address_line2`) · Author: pro-architect · Task: #31 (feature #30) · Design: #32 (emails), PR #53 (order handling)
 
 ## Context
 
@@ -31,12 +31,36 @@ This needs the user's go-ahead, through pro-product-owner, before anyone creates
 ### Sending domain
 
 - Sender subdomain `mail.nygaardsvej41.dk`, so the main domain's mail setup is untouched.
-- From: `probooks <orders@mail.nygaardsvej41.dk>` (`EMAIL_FROM`). Reply-To: the owner's own address (`EMAIL_REPLY_TO`), so customer replies reach a real inbox. Nothing receives mail at `mail.` itself.
-- DNS at one.com (exact values come from Brevo's domain page):
-  - Brevo verification TXT on `mail.nygaardsvej41.dk`.
-  - DKIM record(s) from Brevo for `mail.nygaardsvej41.dk`.
-  - SPF: `mail.nygaardsvej41.dk TXT "v=spf1 include:spf.brevo.com ~all"`.
-  - DMARC: `_dmarc.mail.nygaardsvej41.dk TXT "v=DMARC1; p=none; rua=mailto:<owner address>"`. Move to `p=quarantine` after a few weeks of clean reports.
+- From: `probooks <orders@mail.nygaardsvej41.dk>` (`EMAIL_FROM`). Reply-To: the same address, `orders@mail.nygaardsvej41.dk` (`EMAIL_REPLY_TO`). The user decided this on 2026-10-20.
+
+### Receiving mail at `mail.nygaardsvej41.dk`
+
+Brevo only sends. Without an MX record on `mail.`, customer replies bounce. Checked one.com's help pages on 2026-10-20:
+
+- one.com DNS supports MX records on a subdomain (enter the subdomain as hostname): https://help.one.com/hc/en-us/articles/360000825218-How-do-I-create-an-MX-record and https://help.one.com/hc/en-us/articles/115005595925-Manage-your-DNS-settings
+- one.com forwarding is set per mail account in Mail administration, and the target must verify it: https://help.one.com/hc/en-us/articles/360000934598-How-do-I-automatically-forward-email-to-another-account
+- No one.com help page says you can create a mailbox or forward on a subdomain. Accounts are created for the domain, and on the new platform the MX value is a per-domain cluster you have to get from support: https://help.one.com/hc/en-us/articles/17038200070545-Why-do-my-emails-end-up-in-spam-when-using-external-name-servers
+
+**Decision: forward with ImprovMX (free plan).** Put an MX record on `mail.` at one.com pointing to ImprovMX, and add one alias, `orders@mail.nygaardsvej41.dk`, that forwards to the owner's existing inbox. Free: 1 domain, 25 aliases, 500 forwards/day, no card (https://improvmx.com/pricing/). Mail is handled on servers in France, run by ImprovMX SAS; the company's head office is in New York. Replies stay in the owner's normal inbox, and there's no new mailbox to check. Cost: €0.
+
+Fallback: if one.com support confirms that a mail account or forward on `mail.nygaardsvej41.dk` works on the owner's plan, use that instead with one.com's MX value and `include:_spf.one.com`. Same table below, different MX and SPF values. Migadu (CH, paid, from about $19/year) is the option if the user wants a fully EU company.
+
+Setting up ImprovMX and the one.com records both need the user's own sign-in.
+
+### DNS records at one.com
+
+Hostnames are relative to `nygaardsvej41.dk`, as one.com expects. Brevo shows the exact values on its domain page.
+
+| Type | Host | Value | Purpose |
+|---|---|---|---|
+| TXT | `mail` | `brevo-code:<from Brevo>` | Brevo domain verification |
+| TXT or CNAME | `<selector from Brevo>._domainkey.mail` | `<DKIM value from Brevo>` | DKIM signing for Brevo (add every DKIM record Brevo lists) |
+| TXT | `mail` | `v=spf1 include:spf.brevo.com include:spf.improvmx.com ~all` | SPF: Brevo sends, ImprovMX forwards |
+| TXT | `_dmarc.mail` | `v=DMARC1; p=none; rua=mailto:<owner address>` | DMARC reports; move to `p=quarantine` after a few clean weeks |
+| MX | `mail` | `mx1.improvmx.com`, priority 10 | Inbound replies to ImprovMX |
+| MX | `mail` | `mx2.improvmx.com`, priority 20 | Inbound backup |
+
+There must be only one SPF record on `mail`. It has to include both Brevo and the inbound provider. If the fallback is used, swap `include:spf.improvmx.com` for one.com's include. The root domain's records stay as they are.
 
 ### When and how emails are sent
 
@@ -94,14 +118,14 @@ ALTER TABLE orders
 |---|---|---|
 | `EMAIL_API_KEY` | Brevo v3 key | Secret, per Render service (already listed in ADR 0001) |
 | `EMAIL_FROM` | `probooks <orders@mail.nygaardsvej41.dk>` | |
-| `EMAIL_REPLY_TO` | owner's address | |
+| `EMAIL_REPLY_TO` | `orders@mail.nygaardsvej41.dk` | Same as the sender; forwarded to the owner by ImprovMX |
 | `EMAIL_ALLOWLIST` | `chjort@…,@example.dk` | dev and val only |
 
 ### Templates
 
 - Jinja2 templates in `backend/app/emails/`: `paid.txt`, `paid.html`, `shipped.txt`, `shipped.html`. Every email is sent as multipart with both a plain-text and an HTML part.
 - The HTML is simple: one column, system fonts, no images, no tracking pixels, no external CSS. Brevo open and click tracking is turned off.
-- English. Each email includes the shop name, the order number, the items with quantities, the total in EUR, the delivery address and the Reply-To contact. The exact text comes from the design task #32.
+- English. Each email includes the shop name, the order number, the items with quantities, the total in EUR, the delivery address (with `address_line2` on its own line when set, see the ADR 0004 amendment) and the Reply-To contact. The exact text comes from the design task #32.
 - Subjects: `Payment received for order BH-7K3Q9` and `Your order BH-7K3Q9 has shipped`.
 
 ### Sender interface
@@ -119,4 +143,5 @@ Implementations: `BrevoSender` (httpx), `LogSender`, `FakeSender` (tests). Switc
 - The email can be a few seconds behind the status change. The admin UI shows `pending` until it's done.
 - €0/month at this volume; the 300/day cap is far above need. If it's ever hit, Brevo holds up to 1,000 extra transactional emails for the next day.
 - Customer email addresses and names pass to Brevo (EU). The privacy policy page (R2) must list Brevo as a processor; Brevo's standard DPA covers it.
-- The user must create the Brevo account and add the one.com DNS records with their own sign-in.
+- The user must create the Brevo and ImprovMX accounts and add the one.com DNS records with their own sign-in.
+- ImprovMX is a second processor for reply emails. The privacy policy (R2) must list it.
