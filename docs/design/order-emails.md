@@ -107,7 +107,7 @@ Is the address wrong? Reply to this email as soon as you can.
 --
 probooks · Books shipped within Denmark
 Questions? Reply to this email.
-You get this email because you ordered from probooks (https://nygaardsvej41.dk).
+You get this email because you ordered from probooks (https://probooks.nygaardsvej41.dk).
 ```
 
 HTML layout (single column, max 600 px, centred):
