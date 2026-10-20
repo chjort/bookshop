@@ -32,7 +32,7 @@ PR → lint, pytest, vitest, Docker build → merge → image `:sha` → dev (mi
 
 ## Admin auth and CSV import
 
-One owner, credentials from env vars (`ADMIN_USERNAME`, argon2 `ADMIN_PASSWORD_HASH`). Login sets a signed `HttpOnly`, `Secure`, `SameSite=Lax` session cookie (7 days, key `SESSION_SECRET`); every other `/api/admin/*` route returns 401 without it. Five failed logins lock the username for 15 min (`login_attempts` table), with the same generic message for 401 and 429. `POST /api/admin/import` (multipart, max 5 MB, UTF-8, comma or semicolon) validates each row (ISBN checksum, title, author, `price` > 0, whole `count` ≥ 0), skips bad and duplicate-ISBN rows with Danish reasons, and upserts the rest by ISBN in one synchronous transaction. See [ADR 0003](adr/0003-admin-auth-and-csv-import.md).
+One owner, credentials from env vars (`ADMIN_USERNAME`, argon2 `ADMIN_PASSWORD_HASH`). Login sets a signed `HttpOnly`, `Secure`, `SameSite=Lax` session cookie (7 days, key `SESSION_SECRET`); every other `/api/admin/*` route returns 401 without it. Five failed logins lock the username for 15 min (`login_attempts` table), with the same generic message for 401 and 429. `POST /api/admin/import` (multipart, max 5 MB, UTF-8, comma or semicolon) validates each row (ISBN checksum, title, author, `price` > 0, whole `count` ≥ 0), skips bad and duplicate-ISBN rows with reasons in English, and upserts the rest by ISBN in one synchronous transaction. See [ADR 0003](adr/0003-admin-auth-and-csv-import.md).
 
 ## Cart, checkout and BTC amount
 
