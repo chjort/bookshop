@@ -61,6 +61,12 @@ def test_like_wildcards_in_query_are_literal(client):
     assert titles(client.get("/api/books", params={"q": "a_fa"})) == []
 
 
+def test_underscore_and_percent_match_only_literally(client):
+    seed("axb,A,9798570901650,G,1.00,1\na_b,A,9781502809193,G,1.00,1\n")
+    assert titles(client.get("/api/books", params={"q": "a_b"})) == ["a_b"]
+    assert len(titles(client.get("/api/books", params={"q": "%_%"}))) == 1  # "_" kept, literal
+
+
 def test_exact_isbn_search_returns_the_match(client):
     seed(SAMPLE)
     r = client.get("/api/books", params={"q": "979-8-5285-4834-0"}).json()
