@@ -45,3 +45,7 @@ Paid and shipped emails go out through Brevo's HTTP API (proposal, needs the use
 ## Browse and search
 
 `GET /api/books?q=&genre=&page=` (24 per page), `GET /api/genres`, `GET /api/books/{id}`. Search matches a `search_text` column folded in Python at write time (å/aa, ø/oe, æ/ae, case, accents) with a `pg_trgm` GIN index. In-stock first, then title A–Z (Danish collation). See [ADR 0006](adr/0006-browse-and-search.md).
+
+## Order handling
+
+Admin list `GET /api/admin/orders?status=&q=&page=` (25 per page, counts per status) and detail by order number. `POST .../paid|ship|cancel` each run one conditional `UPDATE ... WHERE status = expected`; otherwise 409 `invalid_transition` with `current_status` and `status_changed_at`. Cancel restores stock in the same transaction. Expired session: 401, nothing applied. See [ADR 0007](adr/0007-order-handling.md).
