@@ -21,7 +21,7 @@ A webshop where the owner sells their own stock of physical books to customers i
 
 - Python backend, React frontend, GitHub, trunk-based, all CI green, only the user merges.
 - Environments dev, val, prd on Render (Frankfurt). One paid Postgres instance with separate databases `shop_dev`, `shop_val`, `shop_prd` and one user each. dev and val run on the free web tier, prd always on. Target cost is about $13 a month.
-- dev.nygaardsvej41.dk, val.nygaardsvej41.dk, nygaardsvej41.dk.
+- probooks.dev.nygaardsvej41.dk, probooks.val.nygaardsvej41.dk, probooks.nygaardsvej41.dk.
 - No private keys stored anywhere. The bitcoin address is configuration.
 
 ## Release 1: walking skeleton

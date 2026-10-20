@@ -38,6 +38,10 @@ To come in ADR 0003.
 
 To come in ADR 0004.
 
+## Order emails
+
+Paid and shipped emails go out through Brevo's HTTP API (proposal, needs the user's confirmation) from `orders@mail.nygaardsvej41.dk`. The status change commits first; the email is sent after commit and its result saved in `paid_email_status` / `shipped_email_status`. dev and val only send to `EMAIL_ALLOWLIST`. See [ADR 0005](adr/0005-order-emails.md).
+
 ## Browse and search
 
 `GET /api/books?q=&genre=&page=` (24 per page), `GET /api/genres`, `GET /api/books/{id}`. Search matches a `search_text` column folded in Python at write time (å/aa, ø/oe, æ/ae, case, accents) with a `pg_trgm` GIN index. In-stock first, then title A–Z (Danish collation). See [ADR 0006](adr/0006-browse-and-search.md).
