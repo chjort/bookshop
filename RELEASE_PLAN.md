@@ -33,15 +33,15 @@ Lean versions of every capability, deployed end to end through dev, val and prd 
 3. **Browse and search**: book list with paging, genre filter, search by title, author or ISBN, a book page with cover, price and stock status.
 4. **Cart and bitcoin checkout**: add to cart, enter name, email and Danish address, flat shipping fee, order summary in EUR and BTC, bitcoin address and order number shown, quantities capped at stock, stock reserved when the order is placed, and the order is saved as awaiting payment.
 5. **Order handling**: the admin order list, marking an order paid and then shipped, and cancelling an unpaid order, which releases its reserved stock. Paid and shipped don't change stock.
-6. **Order emails**: an email to the customer when the order is marked paid and when it is marked shipped.
 
 ## Release 2: ready for real customers
 
-1. **Order received email**: the customer gets the payment instructions by email when they place the order.
-2. **Expiring BTC quotes**: the BTC amount is locked for a set time, and the order shows when the quote expires.
-3. **Stock updates by re-import**: importing the CSV again updates prices and counts, and books missing from the file are hidden rather than deleted.
-4. **Shop pages**: about, terms of sale, privacy policy (GDPR), and contact.
-5. **Out-of-stock handling**: clear out-of-stock display in lists and book pages, and the cart warns when stock changes.
+1. **Order emails**: an email to the customer when the order is marked paid and when it is marked shipped (moved from Release 1 by the user).
+2. **Order received email**: the customer gets the payment instructions by email when they place the order.
+3. **Expiring BTC quotes**: the BTC amount is locked for a set time, and the order shows when the quote expires.
+4. **Stock updates by re-import**: importing the CSV again updates prices and counts, and books missing from the file are hidden rather than deleted.
+5. **Shop pages**: about, terms of sale, privacy policy (GDPR), and contact.
+6. **Out-of-stock handling**: clear out-of-stock display in lists and book pages, and the cart warns when stock changes.
 
 ## Release 3: nice to have
 
