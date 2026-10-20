@@ -37,3 +37,7 @@ To come in ADR 0003.
 ## API
 
 To come in ADR 0004.
+
+## Browse and search
+
+`GET /api/books?q=&genre=&page=` (24 per page), `GET /api/genres`, `GET /api/books/{id}`. Search matches a `search_text` column folded in Python at write time (å/aa, ø/oe, æ/ae, case, accents) with a `pg_trgm` GIN index. In-stock first, then title A–Z (Danish collation). See [ADR 0006](adr/0006-browse-and-search.md).
