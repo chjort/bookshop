@@ -50,7 +50,7 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
 - Each row is validated by a plain function that collects all of the row's errors (see Amendment 2026-10-21):
   - ISBN: digits, with hyphens and spaces stripped; ISBN-10 or ISBN-13 with a valid checksum.
   - Title is required. Author is required.
-  - Genre may be empty and is shown as "Other".
+  - Genre may be empty and is shown as "Øvrige".
   - Price: `12.50` (dot, as in the real file) or `12,50`, more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
   - Stock (`count`): a whole number of 0 or more; `3` and `3.0` are accepted, `3.5` is rejected.
 - Duplicate ISBNs in one file: every row with that ISBN is skipped and listed (design decision 3).
@@ -58,10 +58,10 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
 - Response (Pydantic `ImportResult`), 200:
   ```json
   {"created": 120, "updated": 25, "skipped": 5,
-   "errors": [{"row_number": 14, "isbn": "978...", "errors": ["Price is missing"]}]}
+   "errors": [{"row_number": 14, "isbn": "978...", "errors": ["Pris mangler"]}]}
   ```
   - `row_number` is the line number in the file, with the header as line 1.
-  - The error texts are in English so they can be shown directly (see Amendment 2026-10-21).
+  - The error texts are in Danish so they can be shown directly.
 - No queue in R1. The UI shows a spinner (design decision 8). If imports grow past roughly 30 s, revisit with a background job.
 
 ### CSV columns
@@ -73,7 +73,7 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 | title | `title` | yes | text |
 | author | `author` | yes | text |
 | isbn | `ISBN` | yes | ISBN-10/13 |
-| genre | `genre` | no | text, empty → "Other" |
+| genre | `genre` | no | text, empty → "Øvrige" |
 | price_eur | `price` | yes | `12.50` (also `12,50`) |
 | stock | `count` | yes | whole number ≥ 0 (`3` or `3.0`) |
 
@@ -92,5 +92,4 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 
 Recorded by pro-architect during the review of #65 (task #9). The rest of this ADR stays as is.
 
-1. **Error texts are in English, not Danish.** The shop is English only, so import errors and login messages use English text, which the UI shows directly. The empty-genre fallback is `Other` (ADR 0006).
-2. **Row checks are done by a plain function, not a Pydantic `BookRow` model.** The function checks every field and collects all of a row's problems at once, so the owner sees every problem on a row in one pass and can fix them together. The rules are unchanged: ISBN checksum, required title and author, `price` > 0 with at most 2 decimals (`12.50` or `12,50`), and `count` a whole number ≥ 0 (`3` and `3.0` accepted, fractions rejected, 0 valid and shown as sold out). Pydantic is still used for request bodies and responses.
+**Row checks are done by a plain function, not a Pydantic `BookRow` model.** The function checks every field and collects all of a row's problems at once, so the owner sees every problem on a row in one pass and can fix them together. The rules are unchanged: ISBN checksum, required title and author, `price` > 0 with at most 2 decimals (`12.50` or `12,50`), and `count` a whole number ≥ 0 (`3` and `3.0` accepted, fractions rejected, 0 valid and shown as sold out). Pydantic is still used for request bodies and responses.
