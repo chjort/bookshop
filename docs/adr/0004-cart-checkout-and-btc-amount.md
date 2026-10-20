@@ -35,7 +35,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 - Primary: Kraken `GET https://api.kraken.com/0/public/Ticker?pair=XBTEUR` (last trade `c[0]`). Fallback: CoinGecko `simple/price?ids=bitcoin&vs_currencies=eur`.
 - Each fetch has a 3 s timeout. Kraken is tried first; CoinGecko only if Kraken fails.
 - In-process cache with a 60 s TTL. A rate is **fresh** if it was fetched less than 5 min ago. Each container keeps its own cache; that's fine for one instance.
-- If no fresh rate is available, `GET /api/rates/btc-eur` and `POST /api/orders` return **503** `{"code": "rate_unavailable"}`. The UI shows "Kursen kan ikke hentes lige nu. Prøv igen om lidt." and blocks placement.
+- If no fresh rate is available, `GET /api/rates/btc-eur` and `POST /api/orders` return **503** `{"code": "rate_unavailable"}`. The UI shows "We can't fetch the bitcoin rate right now, so we can't work out the BTC amount. Please try again in a moment." and blocks placement.
 - The server never accepts a rate from the client. The order uses the server's cached rate at the moment of placement.
 - Tests mock both sources with `respx`; no live calls in CI.
 
@@ -44,7 +44,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 - EUR is stored as integer cents (`bigint`). BTC is stored as integer satoshis (`bigint`). Rates are `Decimal`, stored as `numeric(18,2)` EUR per BTC. No floats anywhere.
 - `books.price` (ADR 0003, `numeric(10,2)`) is converted to cents at placement: `int(price * 100)`.
 - `subtotal_cents = Σ unit_price_cents × qty`; `total_cents = subtotal_cents + shipping_cents`.
-- `amount_sats = ceil(Decimal(total_cents) × 1_000_000 / rate)` (cents × 10^8 sats / 100 / rate), **rounded up** so the owner is never short. Exact integer form: `-(-total_cents * 1_000_000 // rate)` with `rate` as `Decimal`.
+- `amount_sats = int((Decimal(total_cents) * 1_000_000 / rate).to_integral_value(ROUND_CEILING))` (cents × 10^8 sats / 100 / rate), **rounded up** to whole sats so the owner is never short. See the 2026-10-21 amendment.
 - The BTC amount is computed once and **stored**, never recomputed. Display is `amount_sats / 10^8` with 8 decimals.
 - The order stores `total_cents`, `rate_eur_per_btc`, `rate_source`, `rate_fetched_at` and `amount_sats`.
 
@@ -57,7 +57,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 
 ### 4. Idempotent placement and stock
 
-- The SPA creates a UUID v4 when the checkout form first opens and sends it as `Idempotency-Key` on every attempt, including "Prøv igen". It gets a new key only after a success or a changed cart.
+- The SPA creates a UUID v4 when the checkout form first opens and sends it as `Idempotency-Key` on every attempt, including "Try again". It gets a new key only after a success or a changed cart.
 - `orders.idempotency_key uuid UNIQUE NOT NULL`.
 - Placement runs in one transaction:
   1. `SELECT ... FROM orders WHERE idempotency_key = :key`. If it's found and the request body hash matches, return **200** with the same order and the same token. If the body differs, return **422** `idempotency_key_reused`.
@@ -202,3 +202,10 @@ Public `POST /api/orders` takes `Content-Type: application/json` only. Rate limi
 - New nullable column: `ALTER TABLE orders ADD COLUMN address_line2 text;` (migration in the order emails feature).
 - Checkout gets an optional "Address line 2" input. API: `address_line2: constr(max_length=200) | None = None`. Blank is stored as `NULL`.
 - Shown under `address_line` in the order emails, and on the admin order view, only when it's set.
+
+## Amendment (2026-10-21, PR #77): sats rounding and delivery details
+
+- **Sats rounding.** The earlier integer form `-(-total_cents * 1_000_000 // rate)` doesn't round up when `rate` is a `Decimal`: Decimal's `//` truncates toward zero, not toward minus infinity. The formula is now the one in `backend/app/orders.py`:
+  `int((Decimal(total_cents) * 1_000_000 / rate).to_integral_value(ROUND_CEILING))`
+  The rate is quantized to 0.01 first, matching `numeric(18,2)`. Example: 100 cents at 30000.00 EUR/BTC is 3333.33… sats, stored as 3334.
+- **Delivery details in `OrderOut`.** The order response also returns `customer_name`, `email`, `address_line`, `address_line2`, `postal_code` and `city`, so the payment page can repeat them. They are reachable only via the secret token (`POST /api/orders` response and `GET /api/orders/{token}`, which keeps `Cache-Control: no-store` and `Referrer-Policy: no-referrer`). The token and the delivery details must not be written to logs, including the server's access log.
