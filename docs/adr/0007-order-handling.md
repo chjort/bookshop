@@ -116,6 +116,7 @@ class OrderDetail(OrderRow):       # GET /api/admin/orders/{order_number}; also 
     subtotal_cents: int
     shipping_cents: int
     address_line: str
+    address_line2: str | None      # optional; nullable, shown only when set (ADR 0004 amendment, #56)
     postal_code: str
     city: str
     country: str                   # "DK"
