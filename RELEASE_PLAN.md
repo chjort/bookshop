@@ -11,12 +11,12 @@ A webshop where the owner sells their own stock of physical books to customers i
 - There is no payment processing in the shop. The customer sends on-chain bitcoin to the owner's fixed address, using the order number as reference. The owner checks their wallet and marks the order paid by hand.
 - Shipping is a flat fee, within Denmark only.
 - The customer gets an email when the order is marked paid and again when it is marked shipped.
-- UI language: Danish (confirmed by the user).
+- UI language: English only (changed by the user on 2026-10-20; was Danish).
 - Success for now: the shop is online and taking orders.
 
 ## Constraints
 
-- The UI and customer emails are in Danish (confirmed by the user).
+- The UI and customer emails are in English. Search still folds å/aa, ø/oe and æ/ae for Danish titles and authors.
 - Stock is reserved when an order is placed. Cancelling an unpaid order releases it. Marking paid or shipped does not change stock. Checkout cannot order more than is in stock.
 
 - Python backend, React frontend, GitHub, trunk-based, all CI green, only the user merges.
