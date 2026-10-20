@@ -1,0 +1,51 @@
+// Client-side cart in localStorage (ADR 0004). The server rechecks price and stock.
+import { useEffect, useState } from "react";
+
+const KEY = "probooks.cart";
+const EVENT = "probooks-cart";
+
+export function readCart() {
+  try {
+    const lines = JSON.parse(localStorage.getItem(KEY) || "[]");
+    return Array.isArray(lines) ? lines : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeCart(lines) {
+  localStorage.setItem(KEY, JSON.stringify(lines));
+  window.dispatchEvent(new Event(EVENT));
+}
+
+// line: {book_id, title, author, price_cents, cover_url, stock, qty}
+export function addToCart(book) {
+  const lines = readCart();
+  const existing = lines.find((l) => l.book_id === book.id);
+  if (existing) {
+    existing.qty = Math.min(existing.qty + 1, book.stock);
+    existing.stock = book.stock;
+  } else {
+    lines.push({ book_id: book.id, title: book.title, author: book.author,
+      price_cents: book.price_cents, cover_url: book.cover_url, stock: book.stock, qty: 1 });
+  }
+  writeCart(lines);
+}
+
+export function useCart() {
+  const [lines, setLines] = useState(readCart);
+  useEffect(() => {
+    const update = () => setLines(readCart());
+    window.addEventListener(EVENT, update);
+    window.addEventListener("storage", update);
+    return () => {
+      window.removeEventListener(EVENT, update);
+      window.removeEventListener("storage", update);
+    };
+  }, []);
+  return lines;
+}
+
+export const SHIPPING_CENTS = 300; // display only; the server adds its own setting
+export const subtotal = (lines) => lines.reduce((s, l) => s + l.price_cents * l.qty, 0);
+export const cartCount = (lines) => lines.reduce((s, l) => s + l.qty, 0);

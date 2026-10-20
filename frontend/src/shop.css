@@ -11,3 +11,8 @@
   .shop { grid-template-columns: 1fr; }
   .grid { grid-template-columns: 1fr 1fr; }
 }
+.totals { display: grid; grid-template-columns: max-content max-content; gap: .25rem 1.5rem; }
+.totals dd { margin: 0; text-align: right; }
+.reference .ref { font-size: 1.75rem; font-weight: bold; font-family: monospace; }
+.address { font-size: 1rem; word-break: break-all; }
+@media print { header, button { display: none; } }
