@@ -47,7 +47,7 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
   - Missing required headers: 422, listing the missing ones.
   - Headers are matched case-insensitively, after trimming spaces.
   - The separator (comma or semicolon) is detected from the header line.
-- Each row is validated with a Pydantic `BookRow` model:
+- Each row is validated by a plain function that collects all of the row's errors (see Amendment 2026-10-21):
   - ISBN: digits, with hyphens and spaces stripped; ISBN-10 or ISBN-13 with a valid checksum.
   - Title is required. Author is required.
   - Genre may be empty and is shown as "Other".
@@ -84,6 +84,12 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 - One table and one migration are added for lockout.
 - An attacker can lock the owner out for 15 minutes by guessing their username. That is accepted for R1.
 - Synchronous import holds one request and one transaction for a few seconds. That is fine at this size, and AC4 is to be confirmed by a test importing 5,000 rows.
-- The column table is provisional until the user confirms headers. Changing it later only touches the `BookRow` mapping.
+- The column table is provisional until the user confirms headers. Changing it later only touches the row-check function.
 
 > ARCHITECTURE.md and the ADR index are added in PR #44. Links to this ADR will be reconciled there or in a follow-up once #44 is merged.
+
+## Amendment 2026-10-21
+
+Recorded by pro-architect during the review of #65 (task #9). The rest of this ADR stays as is.
+
+**Row checks are done by a plain function, not a Pydantic `BookRow` model.** The function checks every field and collects all of a row's problems at once, so the owner sees every problem on a row in one pass and can fix them together. The rules are unchanged: ISBN checksum, required title and author, `price` > 0 with at most 2 decimals (`12.50` or `12,50`), and `count` a whole number ≥ 0 (`3` and `3.0` accepted, fractions rejected, 0 valid and shown as sold out). Pydantic is still used for request bodies and responses.
