@@ -45,6 +45,9 @@ jobs:
         if: env.HOOK != ''
       - if: env.HOOK != ''
         run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://probooks.dev.nygaardsvej41.dk ${{ github.sha }}
+      - name: Smoke test dev
+        if: env.HOOK != ''
+        run: python3 scripts/smoke_test.py https://probooks.dev.nygaardsvej41.dk ${{ github.sha }} dev
 
   promote:
     if: github.event_name == 'workflow_dispatch'
@@ -62,6 +65,7 @@ jobs:
         run: |
           host=${{ inputs.env == 'prd' && 'https://probooks.nygaardsvej41.dk' || 'https://probooks.val.nygaardsvej41.dk' }}
           scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ inputs.sha }}" "$host" ${{ inputs.sha }}
+          python3 scripts/smoke_test.py "$host" ${{ inputs.sha }} ${{ inputs.env }}
       - name: Tag release
         if: inputs.env == 'prd'
         env: { GH_TOKEN: "${{ github.token }}" }
