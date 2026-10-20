@@ -44,7 +44,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 - EUR is stored as integer cents (`bigint`). BTC is stored as integer satoshis (`bigint`). Rates are `Decimal`, stored as `numeric(18,2)` EUR per BTC. No floats anywhere.
 - `books.price` (ADR 0003, `numeric(10,2)`) is converted to cents at placement: `int(price * 100)`.
 - `subtotal_cents = Σ unit_price_cents × qty`; `total_cents = subtotal_cents + shipping_cents`.
-- `amount_sats = ceil(Decimal(total_cents) × 1_000_000 / rate)` (cents × 10^8 sats / 100 / rate), **rounded up** so the owner is never short. Exact integer form: `-(-total_cents * 1_000_000 // rate)` with `rate` as `Decimal`.
+- `amount_sats = int((Decimal(total_cents) * 1_000_000 / rate).to_integral_value(ROUND_CEILING))` (cents × 10^8 sats / 100 / rate), **rounded up** to whole sats so the owner is never short. See the 2026-10-21 amendment.
 - The BTC amount is computed once and **stored**, never recomputed. Display is `amount_sats / 10^8` with 8 decimals.
 - The order stores `total_cents`, `rate_eur_per_btc`, `rate_source`, `rate_fetched_at` and `amount_sats`.
 
@@ -202,3 +202,10 @@ Public `POST /api/orders` takes `Content-Type: application/json` only. Rate limi
 - New nullable column: `ALTER TABLE orders ADD COLUMN address_line2 text;` (migration in the order emails feature).
 - Checkout gets an optional "Address line 2" input. API: `address_line2: constr(max_length=200) | None = None`. Blank is stored as `NULL`.
 - Shown under `address_line` in the order emails, and on the admin order view, only when it's set.
+
+## Amendment (2026-10-21, PR #77): sats rounding and delivery details
+
+- **Sats rounding.** The earlier integer form `-(-total_cents * 1_000_000 // rate)` doesn't round up when `rate` is a `Decimal`: Decimal's `//` truncates toward zero, not toward minus infinity. The formula is now the one in `backend/app/orders.py`:
+  `int((Decimal(total_cents) * 1_000_000 / rate).to_integral_value(ROUND_CEILING))`
+  The rate is quantized to 0.01 first, matching `numeric(18,2)`. Example: 100 cents at 30000.00 EUR/BTC is 3333.33… sats, stored as 3334.
+- **Delivery details in `OrderOut`.** The order response also returns `customer_name`, `email`, `address_line`, `address_line2`, `postal_code` and `city`, so the payment page can repeat them. They are reachable only via the secret token (`POST /api/orders` response and `GET /api/orders/{token}`, which keeps `Cache-Control: no-store` and `Referrer-Policy: no-referrer`). The token and the delivery details must not be written to logs, including the server's access log.
