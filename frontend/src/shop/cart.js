@@ -18,12 +18,17 @@ export function writeCart(lines) {
   window.dispatchEvent(new Event(EVENT));
 }
 
+export const MAX_PER_TITLE = 10; // same cap as the API (CartLineIn.qty <= 10, #81)
+export const maxQty = (stock) => Math.min(stock, MAX_PER_TITLE);
+export const maxHint = (stock) =>
+  stock > MAX_PER_TITLE ? `Max ${MAX_PER_TITLE} per order` : `Only ${stock} in stock`;
+
 // line: {book_id, title, author, price_cents, cover_url, stock, qty}
 export function addToCart(book) {
   const lines = readCart();
   const existing = lines.find((l) => l.book_id === book.id);
   if (existing) {
-    existing.qty = Math.min(existing.qty + 1, book.stock);
+    existing.qty = Math.min(existing.qty + 1, maxQty(book.stock));
     existing.stock = book.stock;
   } else {
     lines.push({ book_id: book.id, title: book.title, author: book.author,

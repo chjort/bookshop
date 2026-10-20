@@ -53,7 +53,7 @@ test("cart changes quantity, shows totals with €3.00 shipping, and removes", a
   render(<Shop />);
   fireEvent.click(await screen.findByRole("button", { name: "More of Alfa" }));
   expect(screen.getByRole("button", { name: "More of Alfa" }).disabled).toBe(true);
-  expect(screen.getByText("Max 2")).toBeTruthy();
+  expect(screen.getByText("Only 2 in stock")).toBeTruthy();
   expect(screen.getByText("€25.00", { selector: "dd" })).toBeTruthy();
   expect(screen.getByText("€3.00")).toBeTruthy();
   expect(screen.getByText("€28.00")).toBeTruthy();
@@ -145,4 +145,55 @@ test("stock changed on submit returns to the cart with a notice", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Place order" }));
   expect(await screen.findByText("Nothing has been ordered yet. Check your cart and try again.")).toBeTruthy();
   expect(window.location.pathname).toBe("/cart");
+});
+
+test("cart caps each title at 10 per order even with more in stock (#81)", async () => {
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 12, qty: 10 }]);
+  routes["/api/books/7"] = () => reply(200, { ...BOOK, stock: 12 });
+  go("/cart");
+  render(<Shop />);
+  expect((await screen.findByRole("button", { name: "More of Alfa" })).disabled).toBe(true);
+  expect(screen.getByText("Max 10 per order")).toBeTruthy();
+  const qty = screen.getByLabelText("Quantity of Alfa");
+  fireEvent.change(qty, { target: { value: "11" } });
+  fireEvent.blur(qty);
+  expect(await screen.findByText("Max 10 per order. Quantity set to 10.")).toBeTruthy();
+  expect(readCart()[0].qty).toBe(10);
+});
+
+test("book page stops adding at 10 per order (#81)", async () => {
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 12, qty: 9 }]);
+  routes["/api/books/7"] = () => reply(200, { ...BOOK, stock: 12 });
+  go("/book/7");
+  render(<Shop />);
+  const add = await screen.findByRole("button", { name: "Add to cart" });
+  fireEvent.click(add);
+  expect(readCart()[0].qty).toBe(10);
+  expect(add.disabled).toBe(true);
+  expect(screen.getByText(/Max 10 per order/)).toBeTruthy();
+});
+
+test("typed quantity above stock is clamped with a message (#83)", async () => {
+  cartLine(1);
+  go("/cart");
+  render(<Shop />);
+  const qty = await screen.findByLabelText("Quantity of Alfa");
+  fireEvent.change(qty, { target: { value: "9" } });
+  fireEvent.blur(qty);
+  expect(await screen.findByText("Only 2 in stock. Quantity set to 2.")).toBeTruthy();
+  expect(readCart()[0].qty).toBe(2);
+});
+
+test("Remove moves focus to the next line, then to the heading (#83)", async () => {
+  routes["/api/books/8"] = () => reply(200, { ...BOOK, id: 8, title: "Beta" });
+  writeCart([
+    { book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 2, qty: 1 },
+    { book_id: 8, title: "Beta", author: "B", price_cents: 800, cover_url: null, stock: 2, qty: 1 },
+  ]);
+  go("/cart");
+  render(<Shop />);
+  fireEvent.click(await screen.findByRole("button", { name: "Remove Alfa" }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove Beta" })));
+  fireEvent.click(screen.getByRole("button", { name: "Remove Beta" }));
+  await waitFor(() => expect(document.activeElement.textContent).toBe("Your cart"));
 });

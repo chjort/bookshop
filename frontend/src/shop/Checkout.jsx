@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate } from "../router.js";
-import { SHIPPING_CENTS, readCart, subtotal, useCart, writeCart } from "./cart.js";
+import { SHIPPING_CENTS, maxHint, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
 import { price } from "./format.js";
 
 const RATE_ERROR =
@@ -46,8 +46,8 @@ async function revalidate(lines) {
       continue;
     }
     const next = { ...line, stock: r.body.stock, price_cents: r.body.price_cents };
-    if (line.qty > r.body.stock) {
-      next.qty = r.body.stock;
+    if (line.qty > maxQty(r.body.stock)) {
+      next.qty = maxQty(r.body.stock);
       notes.push(`Only ${r.body.stock} of ‘${line.title}’ left. Quantity updated.`);
     }
     if (line.price_cents !== r.body.price_cents) {
@@ -79,19 +79,41 @@ export function CartPage() {
     return () => { live = false; };
   }, []);
 
-  const setQty = (id, qty) =>
-    writeCart(readCart().map((l) => (l.book_id === id ? { ...l, qty: Math.max(1, Math.min(qty, l.stock)) } : l)));
-  const remove = (id) => writeCart(readCart().filter((l) => l.book_id !== id));
+  const heading = useRef(null);
+  const listRef = useRef(null);
+  const setQty = (id, qty, typed = false) => {
+    const line = readCart().find((l) => l.book_id === id);
+    const max = maxQty(line.stock);
+    const next = Math.max(1, Math.min(qty, max));
+    if (typed && qty > max) {
+      const msg = line.stock > max
+        ? `Max ${max} per order. Quantity set to ${max}.`
+        : `Only ${max} in stock. Quantity set to ${max}.`;
+      setNotes((n) => [...n.filter((x) => x !== msg), msg]);
+    }
+    writeCart(readCart().map((l) => (l.book_id === id ? { ...l, qty: next } : l)));
+  };
+  const remove = (id) => {
+    const current = readCart();
+    const index = current.findIndex((l) => l.book_id === id);
+    writeCart(current.filter((l) => l.book_id !== id));
+    // Keep keyboard focus: next line's Remove button, else the previous one, else the heading (#83)
+    requestAnimationFrame(() => {
+      const buttons = listRef.current?.querySelectorAll("button.remove") || [];
+      const target = buttons[Math.min(index, buttons.length - 1)] || heading.current;
+      target?.focus();
+    });
+  };
 
   return (
     <>
-      <h1>Your cart</h1>
+      <h1 tabIndex={-1} ref={heading}>Your cart</h1>
       <div aria-live="polite">{notes.map((n) => <p key={n} role="status">{n}</p>)}</div>
       {lines.length === 0 ? (
         <p>Your cart is empty. <a {...linkTo("/")}>See all books</a></p>
       ) : (
         <>
-          <ul className="cart">
+          <ul className="cart" ref={listRef}>
             {lines.map((l) => (
               <li key={l.book_id}>
                 <a {...linkTo(`/book/${l.book_id}`)}>{l.title}</a>
@@ -99,14 +121,13 @@ export function CartPage() {
                 <div>
                   <button type="button" aria-label={`Fewer of ${l.title}`} disabled={l.qty <= 1}
                     onClick={() => setQty(l.book_id, l.qty - 1)}>-</button>
-                  <input type="number" aria-label={`Quantity of ${l.title}`} min={1} max={l.stock}
-                    value={l.qty} onChange={(e) => setQty(l.book_id, parseInt(e.target.value, 10) || 1)} />
-                  <button type="button" aria-label={`More of ${l.title}`} disabled={l.qty >= l.stock}
+                  <QtyInput line={l} onCommit={(n) => setQty(l.book_id, n, true)} />
+                  <button type="button" aria-label={`More of ${l.title}`} disabled={l.qty >= maxQty(l.stock)}
                     onClick={() => setQty(l.book_id, l.qty + 1)}>+</button>
-                  {l.qty >= l.stock && <span> Max {l.stock}</span>}
+                  {l.qty >= maxQty(l.stock) && <span> {maxHint(l.stock)}</span>}
                 </div>
                 <span>{price(l.price_cents)}</span> <span>{price(l.price_cents * l.qty)}</span>{" "}
-                <button type="button" aria-label={`Remove ${l.title}`} onClick={() => remove(l.book_id)}>Remove</button>
+                <button type="button" className="remove" aria-label={`Remove ${l.title}`} onClick={() => remove(l.book_id)}>Remove</button>
               </li>
             ))}
           </ul>
@@ -117,6 +138,20 @@ export function CartPage() {
         </>
       )}
     </>
+  );
+}
+
+// Typed quantities are applied on blur or Enter so the clamp message fits what was typed.
+function QtyInput({ line, onCommit }) {
+  const [text, setText] = useState(null);
+  const commit = () => {
+    if (text !== null) onCommit(parseInt(text, 10) || 1);
+    setText(null);
+  };
+  return (
+    <input type="number" aria-label={`Quantity of ${line.title}`} min={1} max={maxQty(line.stock)}
+      value={text ?? line.qty} onChange={(e) => setText(e.target.value)} onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } }} />
   );
 }
 

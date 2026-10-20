@@ -130,7 +130,16 @@ def test_validation(client):
     ids = seed()
     line = [{"book_id": ids["Alfa"], "qty": 1}]
     assert client.post("/api/orders", json={"lines": line, "shipping": SHIPPING}).status_code == 400
-    for bad in [{"postal_code": "210"}, {"email": "nope"}, {"name": "  "}]:
+    for bad in [
+        {"postal_code": "210"},
+        {"email": "nope"},
+        {"name": "  "},
+        {"name": "a\x00b"},
+        {"address_line": "Testvej\n1"},
+        {"city": "Aarhus\x7f"},
+        {"address_line2": "c/o\x00"},
+        {"email": "qa\x00@example.dk"},
+    ]:
         assert place(client, line, shipping={**SHIPPING, **bad}).status_code == 422
     assert place(client, [{"book_id": ids["Alfa"], "qty": 11}]).status_code == 422
     assert place(client, []).status_code == 422
