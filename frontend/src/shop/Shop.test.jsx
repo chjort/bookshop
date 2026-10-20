@@ -111,5 +111,7 @@ test("a q over 100 characters in the URL is cut to 100 before the API call", asy
   render(<Shop />);
   await screen.findByRole("link", { name: "Alfa" });
   expect(calls).toContain(`/api/books?page=1&q=${"a".repeat(100)}`);
+  expect(screen.getByRole("searchbox").value).toBe("a".repeat(100));
+  expect(screen.getByRole("heading", { name: `Search results for "${"a".repeat(100)}"` })).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
 });
