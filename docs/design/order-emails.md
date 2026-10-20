@@ -5,7 +5,7 @@
 The customer gets an email when the owner marks the order **paid** and again when it is marked **shipped**. Nothing else in R1.
 
 - **No "order placed" email in R1.** The release plan puts it in R2 (#36, "Order received email"), and checkout says "Save this page. The payment details are not sent by email." (cart-checkout 3.4, 5). This spec reserves its layout slot only (section 9) so R2 reuses the same template.
-- No cancellation email in R1 (not in the release plan; see open questions).
+- No cancellation email in R1 (decided, see 12.5).
 - English only, shop name **probooks**, prices like `€12.50`, shipping `€3.00`, BTC `0.00056250 BTC`.
 
 Consistent with: cart-checkout.md (#49), order-handling.md (#53, sections 3.4–3.5), ADR 0001 (`EMAIL_API_KEY`, `PUBLIC_BASE_URL`), ADR 0004 (order number `BH-` + 5 Crockford base32, `amount_sats`, line snapshots), pro-architect's #25 answers (`paid_email_status` / `shipped_email_status` = `pending | sent | failed`, `*_email_sent_at`; status commits first, email after, no rollback).
@@ -15,8 +15,8 @@ Consistent with: cart-checkout.md (#49), order-handling.md (#53, sections 3.4–
 | Item | Decision |
 |---|---|
 | From name | `probooks` |
-| From address | a no-reply-style sender on the shop domain, e.g. `orders@nygaardsvej41.dk` (exact address per pro-architect / email provider) |
-| Reply-To | the owner's real inbox (config, e.g. `SHOP_REPLY_TO`), so a customer pressing Reply reaches a person. The footer says so. |
+| From address | **Placeholder:** `orders@probooks.nygaardsvej41.dk` on a sending subdomain (SPF/DKIM on one.com). Provider pending ADR 0005; the user confirms the address. |
+| Reply-To | **Placeholder:** the owner's inbox (config `SHOP_REPLY_TO`); the user still has to name it. So a customer pressing Reply reaches a person. The footer says so. |
 | To | the order's `email` |
 | Format | `multipart/alternative`: plain-text part first, HTML part second. Both carry the same information; the plain-text part is complete on its own. |
 | Language | `<html lang="en">`; plain text in English |
@@ -65,7 +65,7 @@ Delivery address
   Denmark
 ```
 
-Address line 2 (c/o) shows only when filled in. Country is always "Denmark".
+Address line 2 (c/o) comes from the nullable `address_line2` on orders (ADR 0005, amending 0004) and shows on its own line only when set. Country is always "Denmark".
 
 ## 4. Email A: Payment confirmed (paid)
 
@@ -184,7 +184,7 @@ Haven't received your books after a week? Reply to this email.
 
 HTML: same frame as A with `<h1>Your order is on the way</h1>`, fact box "Order number / Shipped {date}", no "What happens next" section; the closing line is "Haven't received your books after a week? Reply to this email."
 
-No tracking number in R1 (the admin has no field for it; see open questions).
+No tracking number in R1 (decided, see 12.6).
 
 ## 6. HTML build rules
 
@@ -217,7 +217,7 @@ No tracking number in R1 (the admin has no field for it; see open questions).
 |---|---|---|
 | `pending` | Status committed, send not finished | "Customer email: sending …" |
 | `sent` | Provider accepted the message; `*_email_sent_at` set | "Customer email sent {date}, {time}" |
-| `failed` | Provider error or timeout | "⚠ Email not sent" banner + [Copy email]; list marker |
+| `failed` | Provider error or timeout | "⚠ Email not sent" banner with copy button for the customer's email address (no Copy email text); list marker |
 
 - The status change is never rolled back by an email failure.
 - No resend in R1, no automatic retry visible to the owner. The owner emails the customer by hand; this spec's plain-text part is the template they can copy (see open question 3).
@@ -256,15 +256,15 @@ Not built in R1. Same frame, subject `probooks: order BH-7K3Q9 – how to pay`, 
 |---|---|
 | When the order is marked paid, the customer gets an email. | 4 (trigger, content), 8 (status) |
 | When the order is marked shipped, the customer gets an email. | 5, 8 |
-| The emails are in ~~Danish~~ **English** and include the order number. | 2 (language, order number in subject and body), 10. The AC text on #30 still says Danish; the user switched to English on 2026-10-20 (RELEASE_PLAN.md). pro-product-owner to update the AC. |
+| The emails are in English and include the order number. | 2 (language, order number in subject and body), 10. |
 
 ## 12. Open questions
 
-1. **AC wording (pro-product-owner):** update #30 from "Danish" to "English".
-2. **Address line 2 (pro-architect):** checkout has "Address line 2 (optional)" for c/o, but the ADR 0004 `orders` table has only `address_line`. Is line 2 stored (separate column or joined)? The email shows it on its own line if available.
-3. **Manual fallback (pro-product-owner):** should the "Email not sent" banner in admin offer [Copy email text] with the plain-text body, so the owner can paste it? Small, but it's UI scope beyond R1's D1.
-4. **Sender and Reply-To (pro-architect / user):** exact From address on the shop domain and the owner's reply inbox; domain setup (SPF/DKIM) with the email provider.
-5. **Cancellation email (pro-product-owner):** none in R1 per plan. Confirm, or add to R2.
-6. **Tracking number (pro-product-owner):** none in R1. Add an optional field on "Mark shipped" in a later release?
+1. **AC wording:** decided. #30's acceptance criteria now say English (pro-product-owner).
+2. **Address line 2:** decided. Stored as nullable `address_line2` on orders (ADR 0005 amends 0004); emails show it only when set (pro-architect).
+3. **Manual fallback:** decided. No [Copy email text] button in R1; the banner keeps only the copy button for the customer's address (pro-product-owner).
+4. **Sender and Reply-To (user):** open. Placeholders: From `orders@probooks.nygaardsvej41.dk` on a sending subdomain, provider pending ADR 0005; Reply-To is the owner's inbox. The user has to name both.
+5. **Cancellation email:** decided. None in R1 (pro-product-owner).
+6. **Tracking number:** decided. None in R1 (pro-product-owner).
 
 _— pro-designer_
