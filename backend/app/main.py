@@ -1,16 +1,19 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+
+from app import admin
+from app.db import engine
 
 VERSION = os.environ.get("APP_VERSION", "dev")
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).parent.parent / "static"))
 
-engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
 app = FastAPI()
+app.include_router(admin.router)
 
 
 @app.get("/healthz")
@@ -26,6 +29,8 @@ def healthz(response: Response):
 
 @app.get("/{path:path}", include_in_schema=False)
 def spa(path: str):
+    if path.startswith("api/"):
+        raise HTTPException(404)
     root = STATIC_DIR.resolve()
     file = (root / path).resolve()
     if path and file.is_relative_to(root) and file.is_file():
