@@ -184,7 +184,7 @@ No low-stock badge in R1. Out-of-stock books stay in the list, sort last, are ma
 | Empty genre | Shown as "Other" in filter, cards and book page; listed last in the filter. |
 | Missing author | Show nothing instead of "by ". |
 | Whitespace-only search | Treated as no search; shows all books. |
-| Very long query | Input max 200 characters. |
+| Very long query | Input max 100 characters (ADR 0006). |
 | Cover image is huge or slow | Fixed 2:3 box, lazy loading below the fold. |
 
 ## 7. UI copy
