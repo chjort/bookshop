@@ -37,3 +37,7 @@ To come in ADR 0003.
 ## API
 
 To come in ADR 0004.
+
+## Order handling
+
+Admin list `GET /api/admin/orders?status=&q=&page=` (25 per page, counts per status) and detail by order number. `POST .../paid|ship|cancel` each run one conditional `UPDATE ... WHERE status = expected`; otherwise 409 `invalid_transition` with `current_status` and `status_changed_at`. Cancel restores stock in the same transaction. Expired session: 401, nothing applied. See [ADR 0007](adr/0007-order-handling.md).
