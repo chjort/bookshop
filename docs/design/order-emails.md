@@ -16,7 +16,7 @@ Consistent with: cart-checkout.md (#49), order-handling.md (#53, sections 3.4–
 |---|---|
 | From name | `probooks` |
 | From address | **Placeholder:** `probooks <orders@mail.nygaardsvej41.dk>` on the sending subdomain (SPF/DKIM on one.com), per ADR 0005 (PR #56, proposes Brevo, awaiting user confirmation). |
-| Reply-To | **Placeholder:** the owner's inbox (config `SHOP_REPLY_TO`); the user still has to name it. So a customer pressing Reply reaches a person. The footer says so. |
+| Reply-To | `orders@mail.nygaardsvej41.dk` (config `SHOP_REPLY_TO`), same as the sender, decided by the user. A customer pressing Reply reaches the owner. The footer says so. |
 | To | the order's `email` |
 | Format | `multipart/alternative`: plain-text part first, HTML part second. Both carry the same information; the plain-text part is complete on its own. |
 | Language | `<html lang="en">`; plain text in English |
@@ -209,7 +209,7 @@ No tracking number in R1 (decided, see 12.6).
 | Order shipped before paid email went out | Each email is independent; the shipped email is complete on its own. |
 | Paid email failed | Order stays paid; shipped email is still sent later when marked shipped. |
 | Email bounces later (after the provider accepted it) | Out of scope R1: `sent` means accepted by the provider, not delivered. |
-| Customer replies | Goes to Reply-To (owner's inbox). |
+| Customer replies | Goes to Reply-To (`orders@mail.nygaardsvej41.dk`). |
 
 ## 8. Failure and status (ties to order-handling 3.4–3.5)
 
@@ -263,7 +263,7 @@ Not built in R1. Same frame, subject `probooks: order BH-7K3Q9 – how to pay`, 
 1. **AC wording:** decided. #30's acceptance criteria now say English (pro-product-owner).
 2. **Address line 2:** decided. Stored as nullable `address_line2` on orders (ADR 0005 amends 0004); emails show it only when set (pro-architect).
 3. **Manual fallback:** decided. No [Copy email text] button in R1; the banner keeps only the copy button for the customer's address (pro-product-owner).
-4. **Sender and Reply-To (user):** open. Placeholders: From `probooks <orders@mail.nygaardsvej41.dk>` with Brevo as proposed in ADR 0005 (PR #56), awaiting user confirmation; Reply-To is the owner's inbox, which the user has to name.
+4. **Sender and Reply-To:** decided by the user. From `probooks <orders@mail.nygaardsvej41.dk>`, Reply-To `orders@mail.nygaardsvej41.dk`. Brevo as provider is still pending the user's confirmation in ADR 0005 (PR #56).
 5. **Cancellation email:** decided. None in R1 (pro-product-owner).
 6. **Tracking number:** decided. None in R1 (pro-product-owner).
 
