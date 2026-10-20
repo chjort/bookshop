@@ -68,7 +68,7 @@ test("import uploads the file and lists skipped rows", async () => {
   fireEvent.change(input, { target: { files: [new File(["x"], "books.csv")] } });
   fireEvent.click(screen.getByRole("button", { name: "Import" }));
   expect(await screen.findByText("Import finished: books.csv")).toBeTruthy();
-  expect(screen.getByText("1 rows were not imported. The rest were imported.")).toBeTruthy();
+  expect(screen.getByText("1 row was not imported. The rest were imported.")).toBeTruthy();
   expect(screen.getByText("3,912 created · 61 updated · 1 skipped")).toBeTruthy();
   expect(screen.getByRole("cell", { name: "Count must be a whole number" })).toBeTruthy();
 });

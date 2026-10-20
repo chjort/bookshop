@@ -6,26 +6,30 @@ from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import admin, catalogue
+from app import admin, catalogue, logsafe, orders
 from app.db import engine
 
 VERSION = os.environ.get("APP_VERSION", "dev")
+APP_ENV = os.environ.get("APP_ENV", "local")
 STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).parent.parent / "static"))
 
+logsafe.install()
 app = FastAPI()
 app.include_router(admin.router)
 app.include_router(catalogue.router)
+app.include_router(orders.router)
 
 
 @app.get("/healthz")
 def healthz(response: Response):
     try:
         with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
+            db = conn.execute(text("SELECT current_database()")).scalar_one()
     except SQLAlchemyError:
         response.status_code = 503
-        return {"status": "db_unavailable", "version": VERSION}
-    return {"status": "ok", "version": VERSION}
+        return {"status": "db_unavailable", "version": VERSION, "env": APP_ENV}
+    # Database name only; never the host, user, password or URL.
+    return {"status": "ok", "version": VERSION, "env": APP_ENV, "db": db}
 
 
 @app.get("/{path:path}", include_in_schema=False)

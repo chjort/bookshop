@@ -8,6 +8,8 @@ TEST_PASSWORD = "test-password"
 os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ["ADMIN_PASSWORD_HASH"] = PasswordHasher().hash(TEST_PASSWORD)
 os.environ.setdefault("SESSION_SECRET", "test-session-secret")
+os.environ.setdefault("ORDER_TOKEN_SECRET", "test-order-token-secret")
+os.environ.setdefault("BTC_ADDRESS", "bc1qtestaddress0000000000000000000000000")
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -19,7 +21,7 @@ from app.main import app
 @pytest.fixture(autouse=True)
 def clean_db():
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE books, login_attempts"))
+        conn.execute(text("TRUNCATE books, login_attempts, orders, order_lines"))
 
 
 @pytest.fixture

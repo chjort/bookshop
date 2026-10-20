@@ -4,6 +4,7 @@ import { addToCart, cartCount, useCart } from "./cart.js";
 import { CartPage, CheckoutPage, OrderPage } from "./Checkout.jsx";
 import { count, price } from "./format.js";
 
+const MAX_Q = 100;
 const LOAD_ERROR = "We couldn't load the books. Please try again in a moment.";
 
 async function get(url) {
@@ -73,7 +74,7 @@ function Cover({ url, title, alt = "" }) {
 
 function BookList({ search }) {
   const params = new URLSearchParams(search);
-  const q = (params.get("q") || "").trim();
+  const q = (params.get("q") || "").slice(0, MAX_Q).trim(); // the API rejects longer q
   const genre = params.get("genre") || "";
   const page = Math.max(1, parseInt(params.get("page") || "1", 10) || 1);
   const [data, setData] = useState(null);

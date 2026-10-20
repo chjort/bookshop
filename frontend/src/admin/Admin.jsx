@@ -211,7 +211,7 @@ function Result({ result, onAgain }) {
   const banner =
     skipped === 0 ? "All rows were imported."
       : created + updated === 0 ? "No rows were imported."
-        : `${num(skipped)} rows were not imported. The rest were imported.`;
+        : `${num(skipped)} ${skipped === 1 ? "row was" : "rows were"} not imported. The rest were imported.`;
   const rows = errors.slice(page * PAGE, page * PAGE + PAGE);
   return (
     <section>
