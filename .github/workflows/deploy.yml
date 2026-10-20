@@ -35,7 +35,7 @@ jobs:
   dev:
     needs: build
     runs-on: ubuntu-latest
-    environment: { name: dev, url: "https://dev.nygaardsvej41.dk" }
+    environment: { name: dev, url: "https://probooks.dev.nygaardsvej41.dk" }
     env:
       HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
     steps:
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
         if: env.HOOK != ''
       - if: env.HOOK != ''
-        run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://dev.nygaardsvej41.dk ${{ github.sha }}
+        run: scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ github.sha }}" https://probooks.dev.nygaardsvej41.dk ${{ github.sha }}
 
   promote:
     if: github.event_name == 'workflow_dispatch'
@@ -52,7 +52,7 @@ jobs:
     concurrency: { group: "promote-${{ inputs.env }}", cancel-in-progress: false }
     environment:
       name: ${{ inputs.env }}
-      url: ${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}
+      url: ${{ inputs.env == 'prd' && 'https://probooks.nygaardsvej41.dk' || 'https://probooks.val.nygaardsvej41.dk' }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -60,7 +60,7 @@ jobs:
         run: git merge-base --is-ancestor ${{ inputs.sha }} origin/main
       - name: Deploy and smoke test
         run: |
-          host=${{ inputs.env == 'prd' && 'https://nygaardsvej41.dk' || 'https://val.nygaardsvej41.dk' }}
+          host=${{ inputs.env == 'prd' && 'https://probooks.nygaardsvej41.dk' || 'https://probooks.val.nygaardsvej41.dk' }}
           scripts/deploy.sh "${{ secrets.RENDER_DEPLOY_HOOK }}" "$IMAGE:${{ inputs.sha }}" "$host" ${{ inputs.sha }}
       - name: Tag release
         if: inputs.env == 'prd'
