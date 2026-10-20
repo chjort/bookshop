@@ -1,4 +1,4 @@
-from app import csv_import
+from app import catalogue, csv_import
 from app.db import engine
 
 HEADER = "title,author,ISBN,genre,price,count\n"
@@ -56,15 +56,11 @@ def test_search_folds_danish_letters_case_and_accents(client):
 
 def test_like_wildcards_in_query_are_literal(client):
     seed(SAMPLE)
-    # punctuation folds away, so "%" alone is no search
-    assert len(titles(client.get("/api/books", params={"q": "%"}))) == 4
-    assert titles(client.get("/api/books", params={"q": "a_fa"})) == []
-
-
-def test_underscore_and_percent_match_only_literally(client):
-    seed("axb,A,9798570901650,G,1.00,1\na_b,A,9781502809193,G,1.00,1\n")
-    assert titles(client.get("/api/books", params={"q": "a_b"})) == ["a_b"]
-    assert len(titles(client.get("/api/books", params={"q": "%_%"}))) == 1  # "_" kept, literal
+    # punctuation, including "_", folds away, so these are no search
+    for q in ["%", "_", "%_-"]:
+        assert len(titles(client.get("/api/books", params={"q": q}))) == 4
+    # fold() strips them, and _escape is a second guard before LIKE
+    assert catalogue._escape("a%b_c\\") == "a\\%b\\_c\\\\"
 
 
 def test_exact_isbn_search_returns_the_match(client):

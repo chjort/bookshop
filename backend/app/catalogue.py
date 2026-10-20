@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Query, Response
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.db import engine
@@ -13,6 +14,34 @@ ORDER = 'ORDER BY (stock = 0), title COLLATE "da-DK-x-icu", id'
 COLUMNS = "id, isbn, title, author, genre, price_eur, stock"
 
 router = APIRouter(prefix="/api")
+
+
+class BookCard(BaseModel):
+    id: int
+    title: str
+    author: str
+    genre: str
+    price_cents: int
+    in_stock: bool
+    cover_url: str | None
+
+
+class BookPage(BaseModel):
+    items: list[BookCard]
+    page: int
+    page_size: int
+    total: int
+    isbn_match: int | None
+
+
+class Genre(BaseModel):
+    name: str
+    count: int
+
+
+class BookDetail(BookCard):
+    isbn: str
+    stock: int
 
 
 def cover_url(isbn: str, size: str = "M") -> str:
@@ -35,7 +64,7 @@ def _escape(word: str) -> str:
     return word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-@router.get("/books")
+@router.get("/books", response_model=BookPage)
 def list_books(
     response: Response,
     q: str = Query("", max_length=100),
@@ -88,7 +117,7 @@ def list_books(
     }
 
 
-@router.get("/genres")
+@router.get("/genres", response_model=list[Genre])
 def genres(response: Response):
     response.headers["Cache-Control"] = CACHE
     with engine.connect() as conn:
@@ -101,7 +130,9 @@ def genres(response: Response):
     return [{"name": r.name, "count": r.count} for r in rows]
 
 
-@router.get("/books/{book_id}")
+@router.get(
+    "/books/{book_id}", response_model=BookDetail, responses={404: {"description": "not_found"}}
+)
 def book_detail(book_id: int):
     with engine.connect() as conn:
         row = conn.execute(

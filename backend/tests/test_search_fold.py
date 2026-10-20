@@ -25,3 +25,8 @@ def test_isbn_forms_convert_between_10_and_13():
     assert isbn_forms("0-306-40615-2") == ["0306406152", "9780306406157"]
     assert isbn_forms("978-0-306-40615-7") == ["9780306406157", "0306406152"]
     assert isbn_forms("tolkien") == []
+
+
+def test_underscore_and_percent_fold_away():
+    assert fold("a_b%c") == "a b c"
+    assert fold("_%-") == ""

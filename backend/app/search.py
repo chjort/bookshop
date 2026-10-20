@@ -11,7 +11,7 @@ def fold(s: str) -> str:
     s = "".join(_DANISH.get(c, c) for c in s)
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))  # é→e, ü→u
-    return " ".join(re.sub(r"[^\w]+", " ", s).split())
+    return " ".join(re.sub(r"[\W_]+", " ", s).split())
 
 
 def isbn_forms(q: str) -> list[str]:
