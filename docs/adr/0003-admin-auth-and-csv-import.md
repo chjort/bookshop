@@ -50,7 +50,7 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
 - Each row is validated with a Pydantic `BookRow` model:
   - ISBN: digits, with hyphens and spaces stripped; ISBN-10 or ISBN-13 with a valid checksum.
   - Title is required. Author is required.
-  - Genre may be empty and is shown as "Øvrige".
+  - Genre may be empty and is shown as "Other".
   - Price: `12.50` (dot, as in the real file) or `12,50`, more than 0, at most 2 decimals, stored as `Decimal`/`numeric(10,2)`.
   - Stock (`count`): a whole number of 0 or more; `3` and `3.0` are accepted, `3.5` is rejected.
 - Duplicate ISBNs in one file: every row with that ISBN is skipped and listed (design decision 3).
@@ -58,10 +58,10 @@ One owner manages the shop. They log in and upload the stock CSV (#6). AC3 on #6
 - Response (Pydantic `ImportResult`), 200:
   ```json
   {"created": 120, "updated": 25, "skipped": 5,
-   "errors": [{"row_number": 14, "isbn": "978...", "errors": ["Pris mangler"]}]}
+   "errors": [{"row_number": 14, "isbn": "978...", "errors": ["Price is missing"]}]}
   ```
   - `row_number` is the line number in the file, with the header as line 1.
-  - The error texts are in Danish so they can be shown directly.
+  - The error texts are in English, since the shop is English only, so they can be shown directly.
 - No queue in R1. The UI shows a spinner (design decision 8). If imports grow past roughly 30 s, revisit with a background job.
 
 ### CSV columns
@@ -73,7 +73,7 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 | title | `title` | yes | text |
 | author | `author` | yes | text |
 | isbn | `ISBN` | yes | ISBN-10/13 |
-| genre | `genre` | no | text, empty → "Øvrige" |
+| genre | `genre` | no | text, empty → "Other" |
 | price_eur | `price` | yes | `12.50` (also `12,50`) |
 | stock | `count` | yes | whole number ≥ 0 (`3` or `3.0`) |
 
