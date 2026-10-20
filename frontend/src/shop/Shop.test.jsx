@@ -105,3 +105,11 @@ test("cover falls back to the placeholder when the image fails", async () => {
   expect(container.querySelector("img.cover")).toBeNull();
   expect(container.querySelector(".cover.placeholder").textContent).toBe("Alfa");
 });
+
+test("a q over 100 characters in the URL is cut to 100 before the API call", async () => {
+  window.history.pushState({}, "", `/?q=${"a".repeat(150)}`);
+  render(<Shop />);
+  await screen.findByRole("link", { name: "Alfa" });
+  expect(calls).toContain(`/api/books?page=1&q=${"a".repeat(100)}`);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
