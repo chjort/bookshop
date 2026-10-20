@@ -30,13 +30,13 @@ Region Frankfurt, about $13/month. See [ADR 0001](adr/0001-hosting-and-environme
 
 PR → lint, pytest, vitest, Docker build → merge → image `:sha` → dev (migrate, smoke) → val → prd (approval) → tag `vN` + release. See [ADR 0002](adr/0002-ci-cd-pipeline.md).
 
-## Data model
+## Admin auth and CSV import
 
-To come in ADR 0003.
+One owner, credentials from env vars (`ADMIN_USERNAME`, argon2 `ADMIN_PASSWORD_HASH`). Login sets a signed `HttpOnly`, `Secure`, `SameSite=Lax` session cookie (7 days, key `SESSION_SECRET`); every other `/api/admin/*` route returns 401 without it. Five failed logins lock the username for 15 min (`login_attempts` table), with the same generic message for 401 and 429. `POST /api/admin/import` (multipart, max 5 MB, UTF-8, comma or semicolon) validates each row (ISBN checksum, title, author, `price` > 0, whole `count` ≥ 0), skips bad and duplicate-ISBN rows with Danish reasons, and upserts the rest by ISBN in one synchronous transaction. See [ADR 0003](adr/0003-admin-auth-and-csv-import.md).
 
-## API
+## Cart, checkout and BTC amount
 
-To come in ADR 0004.
+Cart lives in `localStorage`; the server rechecks prices and stock. `POST /api/orders` takes an `Idempotency-Key`, locks the books, reserves stock and stores the order in one transaction (409 `stock_changed`, 503 `rate_unavailable`). The BTC/EUR rate comes from Kraken with CoinGecko as fallback (60 s cache, must be under 5 min old) and is locked on the order. Money is integer cents and satoshis, rounded up, never recomputed. Orders get a short `BH-XXXXX` number for the wallet note and a secret HMAC-derived URL token (`/order/{token}`, stored only as a SHA-256 hash). Flat shipping is a setting; cancelling an unpaid order restores stock. See [ADR 0004](adr/0004-cart-checkout-and-btc-amount.md).
 
 ## Order emails
 
