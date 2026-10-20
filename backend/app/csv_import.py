@@ -7,6 +7,8 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import text
 
+from app.search import fold
+
 REQUIRED = ["title", "author", "isbn", "genre", "price", "count"]
 EMPTY_GENRE = "Other"
 
@@ -142,11 +144,12 @@ def _parse(data: bytes) -> tuple[list[dict], list[dict]]:
 
 UPSERT = text(
     """
-    INSERT INTO books (isbn, title, author, genre, price_eur, stock)
-    VALUES (:isbn, :title, :author, :genre, :price_eur, :stock)
+    INSERT INTO books (isbn, title, author, genre, price_eur, stock, search_text)
+    VALUES (:isbn, :title, :author, :genre, :price_eur, :stock, :search_text)
     ON CONFLICT (isbn) DO UPDATE SET
       title = EXCLUDED.title, author = EXCLUDED.author, genre = EXCLUDED.genre,
-      price_eur = EXCLUDED.price_eur, stock = EXCLUDED.stock, updated_at = now()
+      price_eur = EXCLUDED.price_eur, stock = EXCLUDED.stock,
+      search_text = EXCLUDED.search_text, updated_at = now()
     RETURNING (xmax = 0) AS inserted
     """
 )
@@ -156,5 +159,6 @@ def save(conn, books: list[dict]) -> tuple[int, int]:
     """Upsert books by ISBN. Returns (created, updated)."""
     created = 0
     for book in books:
-        created += conn.execute(UPSERT, book).scalar_one()
+        params = {**book, "search_text": fold(f"{book['title']} {book['author']}")}
+        created += conn.execute(UPSERT, params).scalar_one()
     return created, len(books) - created
