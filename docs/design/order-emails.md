@@ -15,7 +15,7 @@ Consistent with: cart-checkout.md (#49), order-handling.md (#53, sections 3.4–
 | Item | Decision |
 |---|---|
 | From name | `probooks` |
-| From address | **Placeholder:** `orders@probooks.nygaardsvej41.dk` on a sending subdomain (SPF/DKIM on one.com). Provider pending ADR 0005; the user confirms the address. |
+| From address | **Placeholder:** `probooks <orders@mail.nygaardsvej41.dk>` on the sending subdomain (SPF/DKIM on one.com), per ADR 0005 (PR #56, proposes Brevo, awaiting user confirmation). |
 | Reply-To | **Placeholder:** the owner's inbox (config `SHOP_REPLY_TO`); the user still has to name it. So a customer pressing Reply reaches a person. The footer says so. |
 | To | the order's `email` |
 | Format | `multipart/alternative`: plain-text part first, HTML part second. Both carry the same information; the plain-text part is complete on its own. |
@@ -263,7 +263,7 @@ Not built in R1. Same frame, subject `probooks: order BH-7K3Q9 – how to pay`, 
 1. **AC wording:** decided. #30's acceptance criteria now say English (pro-product-owner).
 2. **Address line 2:** decided. Stored as nullable `address_line2` on orders (ADR 0005 amends 0004); emails show it only when set (pro-architect).
 3. **Manual fallback:** decided. No [Copy email text] button in R1; the banner keeps only the copy button for the customer's address (pro-product-owner).
-4. **Sender and Reply-To (user):** open. Placeholders: From `orders@probooks.nygaardsvej41.dk` on a sending subdomain, provider pending ADR 0005; Reply-To is the owner's inbox. The user has to name both.
+4. **Sender and Reply-To (user):** open. Placeholders: From `probooks <orders@mail.nygaardsvej41.dk>` with Brevo as proposed in ADR 0005 (PR #56), awaiting user confirmation; Reply-To is the owner's inbox, which the user has to name.
 5. **Cancellation email:** decided. None in R1 (pro-product-owner).
 6. **Tracking number:** decided. None in R1 (pro-product-owner).
 
