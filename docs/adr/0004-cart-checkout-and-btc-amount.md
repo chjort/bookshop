@@ -35,7 +35,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 - Primary: Kraken `GET https://api.kraken.com/0/public/Ticker?pair=XBTEUR` (last trade `c[0]`). Fallback: CoinGecko `simple/price?ids=bitcoin&vs_currencies=eur`.
 - Each fetch has a 3 s timeout. Kraken is tried first; CoinGecko only if Kraken fails.
 - In-process cache with a 60 s TTL. A rate is **fresh** if it was fetched less than 5 min ago. Each container keeps its own cache; that's fine for one instance.
-- If no fresh rate is available, `GET /api/rates/btc-eur` and `POST /api/orders` return **503** `{"code": "rate_unavailable"}`. The UI shows "Kursen kan ikke hentes lige nu. Prøv igen om lidt." and blocks placement.
+- If no fresh rate is available, `GET /api/rates/btc-eur` and `POST /api/orders` return **503** `{"code": "rate_unavailable"}`. The UI shows "We can't fetch the bitcoin rate right now, so we can't work out the BTC amount. Please try again in a moment." and blocks placement.
 - The server never accepts a rate from the client. The order uses the server's cached rate at the moment of placement.
 - Tests mock both sources with `respx`; no live calls in CI.
 
@@ -57,7 +57,7 @@ This answers design questions 1, 2, 4 and 6 in PR #49, section 10.
 
 ### 4. Idempotent placement and stock
 
-- The SPA creates a UUID v4 when the checkout form first opens and sends it as `Idempotency-Key` on every attempt, including "Prøv igen". It gets a new key only after a success or a changed cart.
+- The SPA creates a UUID v4 when the checkout form first opens and sends it as `Idempotency-Key` on every attempt, including "Try again". It gets a new key only after a success or a changed cart.
 - `orders.idempotency_key uuid UNIQUE NOT NULL`.
 - Placement runs in one transaction:
   1. `SELECT ... FROM orders WHERE idempotency_key = :key`. If it's found and the request body hash matches, return **200** with the same order and the same token. If the body differs, return **422** `idempotency_key_reused`.
