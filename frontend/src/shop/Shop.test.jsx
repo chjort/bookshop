@@ -95,3 +95,13 @@ test("load error offers Try again", async () => {
   render(<Shop />);
   expect((await screen.findByRole("alert")).textContent).toContain("We couldn't load the books.");
 });
+
+test("cover falls back to the placeholder when the image fails", async () => {
+  books = () => ({ items: [card(1, "Alfa", { cover_url: "https://covers.example/x.jpg" })],
+    page: 1, page_size: 24, total: 1, isbn_match: null });
+  const { container } = render(<Shop />);
+  await screen.findByRole("link", { name: "Alfa" });
+  fireEvent.error(container.querySelector("img.cover"));
+  expect(container.querySelector("img.cover")).toBeNull();
+  expect(container.querySelector(".cover.placeholder").textContent).toBe("Alfa");
+});
