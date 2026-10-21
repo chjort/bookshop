@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate } from "../router.js";
-import { SHIPPING_CENTS, maxHint, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
+import { MAX_PER_TITLE, SHIPPING_CENTS, maxHint, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
 import { price } from "./format.js";
 
 const RATE_ERROR =
@@ -86,7 +86,7 @@ export function CartPage() {
     const max = maxQty(line.stock);
     const next = Math.max(1, Math.min(qty, max));
     if (typed && qty > max) {
-      const msg = line.stock > max
+      const msg = line.stock >= MAX_PER_TITLE
         ? `Max ${max} per order. Quantity set to ${max}.`
         : `Only ${max} in stock. Quantity set to ${max}.`;
       setNotes((n) => [...n.filter((x) => x !== msg), msg]);
@@ -124,7 +124,7 @@ export function CartPage() {
                   <QtyInput line={l} onCommit={(n) => setQty(l.book_id, n, true)} />
                   <button type="button" aria-label={`More of ${l.title}`} disabled={l.qty >= maxQty(l.stock)}
                     onClick={() => setQty(l.book_id, l.qty + 1)}>+</button>
-                  {l.qty >= maxQty(l.stock) && <span> {maxHint(l.stock)}</span>}
+                  <span aria-live="polite">{l.qty >= maxQty(l.stock) && ` ${maxHint(l.stock)}`}</span>
                 </div>
                 <span>{price(l.price_cents)}</span> <span>{price(l.price_cents * l.qty)}</span>{" "}
                 <button type="button" className="remove" aria-label={`Remove ${l.title}`} onClick={() => remove(l.book_id)}>Remove</button>

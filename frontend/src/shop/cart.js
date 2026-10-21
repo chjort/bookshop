@@ -21,7 +21,7 @@ export function writeCart(lines) {
 export const MAX_PER_TITLE = 10; // same cap as the API (CartLineIn.qty <= 10, #81)
 export const maxQty = (stock) => Math.min(stock, MAX_PER_TITLE);
 export const maxHint = (stock) =>
-  stock > MAX_PER_TITLE ? `Max ${MAX_PER_TITLE} per order` : `Only ${stock} in stock`;
+  stock >= MAX_PER_TITLE ? `Max ${MAX_PER_TITLE} per order` : `Only ${stock} in stock`; // copy: spec PR #85
 
 // line: {book_id, title, author, price_cents, cover_url, stock, qty}
 export function addToCart(book) {

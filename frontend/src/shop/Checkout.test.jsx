@@ -53,7 +53,7 @@ test("cart changes quantity, shows totals with €3.00 shipping, and removes", a
   render(<Shop />);
   fireEvent.click(await screen.findByRole("button", { name: "More of Alfa" }));
   expect(screen.getByRole("button", { name: "More of Alfa" }).disabled).toBe(true);
-  expect(screen.getByText("Only 2 in stock")).toBeTruthy();
+  expect(screen.getByText("Only 2 in stock").closest("[aria-live=polite]")).toBeTruthy();
   expect(screen.getByText("€25.00", { selector: "dd" })).toBeTruthy();
   expect(screen.getByText("€3.00")).toBeTruthy();
   expect(screen.getByText("€28.00")).toBeTruthy();
@@ -196,4 +196,27 @@ test("Remove moves focus to the next line, then to the heading (#83)", async () 
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Remove Beta" })));
   fireEvent.click(screen.getByRole("button", { name: "Remove Beta" }));
   await waitFor(() => expect(document.activeElement.textContent).toBe("Your cart"));
+});
+
+test("stock of exactly 10 shows 'Max 10 per order' in a polite live region (#81)", async () => {
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 10, qty: 10 }]);
+  routes["/api/books/7"] = () => reply(200, { ...BOOK, stock: 10 });
+  go("/cart");
+  render(<Shop />);
+  const hint = await screen.findByText("Max 10 per order");
+  expect(hint.closest("[aria-live]").getAttribute("aria-live")).toBe("polite");
+});
+
+test.each([
+  [9, "Only 9 in stock"],
+  [10, "Max 10 per order"],
+  [11, "Max 10 per order"],
+])("limit hint for stock %i is '%s' (#81)", async (stock, text) => {
+  const qty = Math.min(stock, 10);
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock, qty }]);
+  routes["/api/books/7"] = () => reply(200, { ...BOOK, stock });
+  go("/cart");
+  render(<Shop />);
+  expect((await screen.findByText(text)).closest("[aria-live=polite]")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "More of Alfa" }).disabled).toBe(true);
 });
