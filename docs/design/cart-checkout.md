@@ -81,7 +81,7 @@ Mobile
 
 - **Quantity cap (product call on #81):** at most 10 copies per title per order, and never more than what's in stock. The cap is `min(stock, 10)`. ADR 0004 is unchanged.
 - `+` is disabled at the cap. The number field clamps to 1…cap (`max` = cap); a typed or pasted higher number is set to the cap.
-- At the cap, a short message under the line says why, in plain text with an info icon (never colour alone): "Only {n} in stock" when stock is the limit (stock ≤ 10), "Max 10 per order" when the order limit is the limit (stock > 10). If both are 10, show "Max 10 per order". The message is announced via an `aria-live="polite"` region, and the disabled `+` points to it with `aria-describedby`.
+- At the cap, a short message under the line says why, in plain text with an info icon (never colour alone): "Only {n} in stock" when stock is below 10, "Max 10 per order" when stock is 10 or more. The message is announced via an `aria-live="polite"` region, and the disabled `+` points to it with `aria-describedby`.
 - `-` at 1 is disabled; removal goes through "Remove" so a book isn't removed by accident.
 - Shipping is a flat €3.00 (user decision), read from configuration.
 
@@ -207,8 +207,8 @@ Mobile: single column in this order: thanks, save notice + button, the reference
 | Empty cart | "Your cart is empty." [See all books]. Header shows "Cart (0)". Going to `/checkout` with an empty cart redirects to the cart. |
 | Added to cart | On the book page: "Added to cart" + [Go to cart]; header count updates. |
 | Out of stock on book page | No "Add to cart" button (rule from #14). |
-| Quantity at the stock limit (stock ≤ 10) | `+` disabled; message "Only {n} in stock" (polite live region, icon + text). A typed higher number is clamped to {n}, with "Only {n} in stock. Quantity set to {n}." |
-| Quantity at the order limit (stock > 10) | `+` disabled at 10; message "Max 10 per order" (polite live region, icon + text). A typed higher number is clamped to 10, with "Max 10 per order. Quantity set to 10." |
+| Quantity at the stock limit (stock < 10) | `+` disabled; message "Only {n} in stock" (polite live region, icon + text). A typed higher number is clamped to {n}, with "Only {n} in stock. Quantity set to {n}." |
+| Quantity at the order limit (stock ≥ 10) | `+` disabled at 10; message "Max 10 per order" (polite live region, icon + text). A typed higher number is clamped to 10, with "Max 10 per order. Quantity set to 10." |
 | Below the cap again | After `-` or a lower typed value, `+` is enabled again and the cap message disappears. |
 | Item sold out or reserved meanwhile (cart load) | Banner "‘{title}’ is now sold out and has been removed from the cart." or "Only {n} of ‘{title}’ left. Quantity updated." Totals update. |
 | Item sold out or reserved meanwhile (on submit) | Back to the cart with the same banner; "Nothing has been ordered yet. Check your cart and try again." |
