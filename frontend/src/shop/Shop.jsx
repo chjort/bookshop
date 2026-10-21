@@ -35,7 +35,7 @@ export default function Shop() {
 
 function SearchForm() {
   const params = new URLSearchParams(window.location.search);
-  const [q, setQ] = useState(params.get("q") || "");
+  const [q, setQ] = useState((params.get("q") || "").slice(0, MAX_Q).trim());
   return (
     <form role="search" aria-label="Search books" onSubmit={(e) => {
       e.preventDefault();
