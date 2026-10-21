@@ -220,3 +220,37 @@ test.each([
   expect((await screen.findByText(text)).closest("[aria-live=polite]")).toBeTruthy();
   expect(screen.getByRole("button", { name: "More of Alfa" }).disabled).toBe(true);
 });
+
+function expectDescribedByCapNote(button, text) {
+  const id = button.getAttribute("aria-describedby");
+  expect(id).toBeTruthy();
+  const note = document.getElementById(id);
+  expect(note.getAttribute("aria-live")).toBe("polite");
+  expect(note.textContent).toContain(text);
+  const icon = note.querySelector(".info-icon");
+  expect(icon.getAttribute("aria-hidden")).toBe("true");
+  expect(icon.textContent).toBe("ⓘ");
+}
+
+test("disabled + is described by the cap message with an info icon (#86)", async () => {
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 11, qty: 10 }]);
+  routes["/api/books/7"] = () => reply(200, { ...BOOK, stock: 11 });
+  go("/cart");
+  render(<Shop />);
+  const plus = await screen.findByRole("button", { name: "More of Alfa" });
+  expect(plus.disabled).toBe(true);
+  expectDescribedByCapNote(plus, "Max 10 per order");
+  fireEvent.click(screen.getByRole("button", { name: "Fewer of Alfa" }));
+  expect(plus.disabled).toBe(false);
+  expect(plus.hasAttribute("aria-describedby")).toBe(false);
+  expect(document.getElementById("cap-7").textContent).toBe("");
+});
+
+test("disabled 'Add to cart' is described by the cap message with an info icon (#86)", async () => {
+  writeCart([{ book_id: 7, title: "Alfa", author: "A", price_cents: 1250, cover_url: null, stock: 2, qty: 2 }]);
+  go("/book/7");
+  render(<Shop />);
+  const add = await screen.findByRole("button", { name: "Add to cart" });
+  expect(add.disabled).toBe(true);
+  expectDescribedByCapNote(add, "Only 2 in stock");
+});

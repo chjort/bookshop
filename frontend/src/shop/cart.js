@@ -1,5 +1,5 @@
 // Client-side cart in localStorage (ADR 0004). The server rechecks price and stock.
-import { useEffect, useState } from "react";
+import { createElement as h, useEffect, useState } from "react";
 
 const KEY = "probooks.cart";
 const EVENT = "probooks-cart";
@@ -54,3 +54,11 @@ export function useCart() {
 export const SHIPPING_CENTS = 300; // display only; the server adds its own setting
 export const subtotal = (lines) => lines.reduce((s, l) => s + l.price_cents * l.qty, 0);
 export const cartCount = (lines) => lines.reduce((s, l) => s + l.qty, 0);
+
+// Cap message with an info icon (spec PR #85). The live region is always rendered so
+// screen readers announce the text when it appears; disabled controls point at its id.
+export function CapNote({ id, show, stock }) {
+  return h("span", { id, className: "cap-note", "aria-live": "polite" },
+    show ? [h("span", { key: "i", className: "info-icon", "aria-hidden": "true" }, "ⓘ"),
+      ` ${maxHint(stock)}`] : null);
+}

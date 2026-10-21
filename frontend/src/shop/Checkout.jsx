@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate } from "../router.js";
-import { MAX_PER_TITLE, SHIPPING_CENTS, maxHint, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
+import { CapNote, MAX_PER_TITLE, SHIPPING_CENTS, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
 import { price } from "./format.js";
 
 const RATE_ERROR =
@@ -123,8 +123,9 @@ export function CartPage() {
                     onClick={() => setQty(l.book_id, l.qty - 1)}>-</button>
                   <QtyInput line={l} onCommit={(n) => setQty(l.book_id, n, true)} />
                   <button type="button" aria-label={`More of ${l.title}`} disabled={l.qty >= maxQty(l.stock)}
+                    aria-describedby={l.qty >= maxQty(l.stock) ? `cap-${l.book_id}` : undefined}
                     onClick={() => setQty(l.book_id, l.qty + 1)}>+</button>
-                  <span aria-live="polite">{l.qty >= maxQty(l.stock) && ` ${maxHint(l.stock)}`}</span>
+                  <CapNote id={`cap-${l.book_id}`} show={l.qty >= maxQty(l.stock)} stock={l.stock} />
                 </div>
                 <span>{price(l.price_cents)}</span> <span>{price(l.price_cents * l.qty)}</span>{" "}
                 <button type="button" className="remove" aria-label={`Remove ${l.title}`} onClick={() => remove(l.book_id)}>Remove</button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate, useLocation } from "../router.js";
-import { addToCart, cartCount, maxHint, maxQty, useCart } from "./cart.js";
+import { CapNote, addToCart, cartCount, maxQty, useCart } from "./cart.js";
 import { CartPage, CheckoutPage, OrderPage } from "./Checkout.jsx";
 import { count, price } from "./format.js";
 
@@ -242,13 +242,14 @@ function AddToCart({ book }) {
   const full = inCart >= maxQty(book.stock);
   return (
     <p>
-      <button type="button" disabled={full} onClick={() => { addToCart(book); setAdded(true); }}>
+      <button type="button" disabled={full} aria-describedby={full ? "cap-book" : undefined}
+        onClick={() => { addToCart(book); setAdded(true); }}>
         Add to cart
       </button>{" "}
       <span aria-live="polite">
         {added && <>Added to cart · <a {...linkTo("/cart")}>Go to cart</a></>}
-        {full && (added ? ` · ${maxHint(book.stock)}` : maxHint(book.stock))}
-      </span>
+      </span>{" "}
+      <CapNote id="cap-book" show={full} stock={book.stock} />
     </p>
   );
 }
