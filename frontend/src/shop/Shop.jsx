@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate, useLocation } from "../router.js";
+import { CapNote, addToCart, cartCount, maxQty, useCart } from "./cart.js";
+import { CartPage, CheckoutPage, OrderPage } from "./Checkout.jsx";
 import { count, price } from "./format.js";
 
 const MAX_Q = 100;
@@ -21,14 +23,23 @@ function listUrl({ q = "", genre = "", page = 1 }) {
 
 export default function Shop() {
   const { path, search } = useLocation();
-  const m = path.match(/^\/book\/(\d+)$/);
+  const cart = useCart();
+  const book = path.match(/^\/book\/(\d+)$/);
+  const order = path.match(/^\/order\/([^/]+)$/);
+  let page;
+  if (book) page = <BookPage key={book[1]} id={book[1]} />;
+  else if (order) page = <OrderPage key={order[1]} token={order[1]} />;
+  else if (path === "/cart") page = <CartPage />;
+  else if (path === "/checkout") page = <CheckoutPage />;
+  else page = <BookList key={search} search={search} />;
   return (
     <>
       <header>
         <a {...linkTo("/")}><strong>probooks</strong></a>
         <SearchForm key={search} />
+        <a {...linkTo("/cart")}>Cart ({cartCount(cart)})</a>
       </header>
-      <main>{m ? <BookPage key={m[1]} id={m[1]} /> : <BookList key={search} search={search} />}</main>
+      <main>{page}</main>
     </>
   );
 }
@@ -214,12 +225,31 @@ function BookPage({ id }) {
       {book.author && <p>by {book.author}</p>}
       <p className="price">{price(book.price_cents)}</p>
       <p><StockBadge inStock={book.in_stock} /></p>
-      {!book.in_stock && <p>Can't be added to the cart</p>}
+      {book.in_stock ? <AddToCart book={book} /> : <p>Can't be added to the cart</p>}
       <dl>
         <dt>Genre:</dt><dd>{book.genre}</dd>
         <dt>ISBN:</dt><dd>{book.isbn}</dd>
         <dt>Shipping:</dt><dd>flat €3.00 (Denmark only)</dd>
       </dl>
     </article>
+  );
+}
+
+function AddToCart({ book }) {
+  const cart = useCart();
+  const [added, setAdded] = useState(false);
+  const inCart = cart.find((l) => l.book_id === book.id)?.qty || 0;
+  const full = inCart >= maxQty(book.stock);
+  return (
+    <p>
+      <button type="button" disabled={full} aria-describedby={full ? "cap-book" : undefined}
+        onClick={() => { addToCart(book); setAdded(true); }}>
+        Add to cart
+      </button>{" "}
+      <span aria-live="polite">
+        {added && <>Added to cart · <a {...linkTo("/cart")}>Go to cart</a></>}
+      </span>{" "}
+      <CapNote id="cap-book" show={full} stock={book.stock} />
+    </p>
   );
 }
