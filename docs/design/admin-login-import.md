@@ -97,6 +97,10 @@ The nav is shared by all admin pages. "Orders" links to the order list from feat
 |  count. Upper/lower case doesn't matter.                      |
 |  Comma or semicolon as separator.                             |
 |                                                               |
+|  `count` is the number of copies on your shelf. Copies in     |
+|  orders that are awaiting payment or paid are subtracted      |
+|  automatically.                                               |
+|                                                               |
 |  CSV file                                                     |
 |  +--------------------------------------------------------+  |
 |  | [Choose file]  books.csv (412 KB)                      |  |
@@ -107,6 +111,8 @@ The nav is shared by all admin pages. "Orders" links to the order list from feat
 |  [ Import ]                                                   |
 +--------------------------------------------------------------+
 ```
+
+The shelf-count help text sits directly above the file picker and is linked to the file input with `aria-describedby="import-file-hint import-shelf-help"` (the file hint and the shelf help, both ids named). It explains the ADR 0003 amendment (#110): stock = `count` minus copies held by Awaiting payment and Paid orders, never below 0.
 
 The drop zone is optional sugar. The real control is a native `<input type="file" accept=".csv,text/csv">` with a visible label.
 
@@ -131,6 +137,7 @@ Spinner only, no progress bar: the import is one synchronous request of a few se
 |  | 3,912     |  | 61        |  | 27        |                 |
 |  | created   |  | updated   |  | skipped   |                 |
 |  +-----------+  +-----------+  +-----------+                 |
+|  12 copies held back for open orders.                         |  <- only if held_back > 0
 |                                                               |
 |  Skipped rows (27)                                            |
 |  +-------+---------------+---------------------------------+ |
@@ -150,6 +157,8 @@ Spinner only, no progress bar: the import is one synchronous request of a few se
 
 With no skipped rows, the banner is green ("All rows were imported.") and the table is hidden; "skipped" shows 0. Row numbers count the header as row 1, matching a spreadsheet. The table pages at 50 rows.
 
+**Held-back line (R1 import fix #109):** when the import result's `held_back` > 0, show "{n} copies held back for open orders." ("1 copy held back for open orders." when n = 1) as plain text directly under the counters. When `held_back` is 0 or absent, the line is not rendered. It lives in the same result region as the counters (`role="status"`, `aria-live="polite"`), so it is announced with them; it is informational, not a warning, so no icon or colour. `n` uses English number formatting (`1,204`). `held_back` is the number of copies actually held back, as decided in ADR 0003 as amended in #110: the sum over books of `min(held, count)`. A book with `count` 2 and 3 held copies adds 2, not 3. The UI copy just shows the API's value.
+
 ## 4. UI states
 
 | State | What the user sees |
@@ -159,6 +168,7 @@ With no skipped rows, the banner is green ("All rows were imported.") and the ta
 | Loading (import) | Spinner and "Importing {filename} … This takes a few seconds." Form disabled; no double submit. No progress bar. |
 | Success | Section 3.5 with skipped 0; green banner "All rows were imported." |
 | Partial success | Section 3.5: valid rows imported; amber banner "{n} rows were not imported. The rest were imported." plus the skipped rows table. |
+| Success with copies held back | Section 3.5 plus the line "{n} copies held back for open orders." under the counters (only when `held_back` > 0; singular for 1). Banner colour unchanged. |
 | No valid rows | Section 3.5 with 0 created, 0 updated; red banner "No rows were imported." plus the table. |
 | File error (whole file rejected) | Red banner with the reason (over 5 MB, not UTF-8, missing headers; also wrong type or empty) and "Nothing was imported." File cleared. |
 | Auth error | "Wrong username or password." Password cleared, username kept, focus to banner. |
@@ -193,6 +203,7 @@ With no skipped rows, the banner is green ("All rows were imported.") and the ta
 | Not UTF-8 (e.g. Windows-1252 from Excel) | File rejected; nothing imported. Never import garbled characters (Ã¦ for æ). | "The file isn't saved as UTF-8. Save it as ‘CSV UTF-8’ in Excel and try again." |
 | Comma or semicolon separator | Both accepted. | — |
 | One or more rows invalid | Those rows skipped and listed; valid rows imported. | "{n} rows were not imported. The rest were imported." |
+| Held copies exceed the shelf count (e.g. `count` 2, 3 copies in Awaiting payment / Paid orders) | Stock is set to 0 (floor 0); the row is imported, not skipped. That book adds 2 (not 3) to `held_back`, so with no other held copies the line reads "2 copies held back for open orders." No extra error or warning. **Not shown in R1:** the extra held copy (promised in an order but not on the shelf) isn't flagged anywhere in R1 (see the #110 consequences). | "2 copies held back for open orders." |
 | Every row invalid | Nothing imported; all rows listed. | "No rows were imported." |
 
 ## 6. UI copy
@@ -228,6 +239,9 @@ With no skipped rows, the banner is green ("All rows were imported.") and the ta
 | Import button / busy | Import / Importing … |
 | Result heading | Import finished: {filename} |
 | Counters | created · updated · skipped |
+| Held back (n > 1) | {n} copies held back for open orders. |
+| Held back (n = 1) | 1 copy held back for open orders. |
+| Shelf-count help | `count` is the number of copies on your shelf. Copies in orders that are awaiting payment or paid are subtracted automatically. |
 | All ok | All rows were imported. |
 | Partial | {n} rows were not imported. The rest were imported. |
 | No valid rows | No rows were imported. |
@@ -263,6 +277,8 @@ Numbers use English formatting: `3,912`, prices `€12.50`, dates `19 Oct 2026`,
 | Uploading the CSV creates or updates books by ISBN. | 3.3, 3.5 (created / updated), 5 (ISBN already in shop, header case, separators, price format, count format), 9.1–9.2, 9.11 |
 | Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5, 4 (partial success, no valid rows), 5 (row-level errors), 6, 9.3, 9.6, 9.7. **Fully met.** |
 | A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (large file, over 5 MB), 9.4, 9.8 |
+| Import result says how many copies were held back for open orders (R1 import fix #109). | 3.3 (shelf-count help), 3.5 (held-back line), 4 (success with copies held back), 5 (held copies exceed count), 6, 9.15 |
+| Re-importing stock never frees copies held by Awaiting payment and Paid orders (R1 import fix #109, ADR 0003 amendment #110). | 3.3, 5 (held copies exceed count), 9.15 |
 
 ## 9. Resolved decisions
 
@@ -288,6 +304,10 @@ From the user and pro-product-owner:
 12. **UI language: English only (user decision 2026-10-20).** All copy in this spec is English; `lang="en"`.
 13. **Shop name:** probooks (replaces the placeholder "Boghandel").
 14. **Display formats:** English number and price format everywhere in the UI: `3,912`, `€12.50`. CSV input formats (decision 2) are unchanged.
+
+From pro-product-owner and pro-architect (R1 import fix #109, ADR 0003 amendment #110):
+
+15. **Shelf count and held-back copies:** `count` means copies on the shelf. Import sets stock to `count` minus copies held by Awaiting payment and Paid orders, never below 0. The result shows "{n} copies held back for open orders." only when `held_back` > 0, inside the existing result status region. `held_back` is the copies actually held back, `min(held, count)` per book. A book whose held copies exceed its count gets stock 0 and adds its count to `held_back`; the shortfall isn't flagged in R1.
 
 Nothing is open.
 
