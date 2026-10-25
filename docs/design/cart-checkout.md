@@ -212,6 +212,10 @@ Payment page after a status change (here Cancelled):
 | Shipped | Order {ref} | Status: Shipped · Your order is on its way. | Hidden |
 | Cancelled | Order {ref} | Status: Cancelled · This order was cancelled. Please don't send a payment. | Hidden |
 
+For Paid, Shipped and Cancelled the page keeps the short order and delivery summary (order number, total, deliver-to name and address). R1 has no full item list on these pages.
+
+**R2 only (#95):** long values (email, name, address) wrap with `overflow-wrap: anywhere` and never cause sideways scroll at 320 px.
+
 **Print stylesheet (`@media print`, Awaiting payment only; the other statuses have no print button):** hide the header, search, cart and buttons. Print the shop name, the reference (large), the amount in BTC and EUR, the full address in monospace (not grouped or truncated), the QR code at ≥ 3 cm, the steps, what happens next, and the order and delivery details. Black on white, no backgrounds, fits on one A4 page. "Print / save page" calls `window.print()`, where the browser also offers "Save as PDF".
 
 ## 4. BTC amount: rounding and labelling
