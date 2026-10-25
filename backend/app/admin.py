@@ -71,5 +71,11 @@ async def import_csv(request: Request, file: UploadFile):
     except csv_import.FileError as e:
         raise HTTPException(422, str(e)) from None
     with engine.begin() as conn:
-        created, updated = csv_import.save(conn, books)
-    return {"created": created, "updated": updated, "skipped": len(errors), "errors": errors}
+        created, updated, held_back = csv_import.save(conn, books)
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": len(errors),
+        "held_back": held_back,
+        "errors": errors,
+    }

@@ -34,6 +34,7 @@ def test_design_example_imports_valid_rows_and_lists_the_rest(admin):
         "created": 3,
         "updated": 0,
         "skipped": 1,
+        "held_back": 0,
         "errors": [
             {"row_number": 5, "isbn": "9781981618675", "errors": ["Count must be a whole number"]}
         ],

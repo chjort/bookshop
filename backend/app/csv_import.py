@@ -154,11 +154,38 @@ UPSERT = text(
     """
 )
 
+# ADR 0003 amendment 2026-10-25: placement and cancel lock their book rows in id order and
+# hold them until they commit. The import runs at READ COMMITTED with lock, sum and upsert as
+# separate statements, so the sum gets a fresh snapshot taken after the locks are held.
+LOCK_BOOKS = text("SELECT id FROM books WHERE isbn = ANY(:isbns) ORDER BY id FOR UPDATE")
 
-def save(conn, books: list[dict]) -> tuple[int, int]:
-    """Upsert books by ISBN. Returns (created, updated)."""
-    created = 0
+HELD = text(
+    """
+    SELECT b.isbn, SUM(l.qty) AS held
+    FROM order_lines l
+    JOIN orders o ON o.id = l.order_id
+    JOIN books b ON b.id = l.book_id
+    WHERE o.status IN ('awaiting_payment', 'paid') AND b.isbn = ANY(:isbns)
+    GROUP BY b.isbn
+    """
+)
+
+
+def save(conn, books: list[dict]) -> tuple[int, int, int]:
+    """Upsert books by ISBN. The file's count is copies on the shelf; stock is that minus
+    copies held by open orders, never below 0. Returns (created, updated, held_back)."""
+    isbns = [book["isbn"] for book in books]
+    conn.execute(LOCK_BOOKS, {"isbns": isbns})
+    held = {isbn: int(n) for isbn, n in conn.execute(HELD, {"isbns": isbns})}
+    created = held_back = 0
     for book in books:
-        params = {**book, "search_text": fold(f"{book['title']} {book['author']}")}
+        n = held.get(book["isbn"], 0)
+        stock = max(book["stock"] - n, 0)
+        held_back += book["stock"] - stock  # copies actually held back: min(count, held)
+        params = {
+            **book,
+            "stock": stock,
+            "search_text": fold(f"{book['title']} {book['author']}"),
+        }
         created += conn.execute(UPSERT, params).scalar_one()
-    return created, len(books) - created
+    return created, len(books) - created, held_back

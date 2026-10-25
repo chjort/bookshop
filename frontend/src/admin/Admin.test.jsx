@@ -73,6 +73,57 @@ test("import uploads the file and lists skipped rows", async () => {
   expect(screen.getByRole("cell", { name: "Count must be a whole number" })).toBeTruthy();
 });
 
+async function importWith(body) {
+  loggedIn();
+  window.history.pushState({}, "", "/admin/import");
+  routes["/api/admin/import"] = () => reply(200, { created: 0, updated: 2, skipped: 0, errors: [], ...body });
+  render(<Admin />);
+  const input = await screen.findByLabelText("CSV file");
+  fireEvent.change(input, { target: { files: [new File(["x"], "books.csv")] } });
+  fireEvent.click(screen.getByRole("button", { name: "Import" }));
+  await screen.findByText("Import finished: books.csv");
+}
+
+test("held-back line is hidden when no copies were held back", async () => {
+  await importWith({ held_back: 0 });
+  expect(screen.queryByText(/held back for open orders/)).toBeNull();
+});
+
+test("held-back line is hidden when the API leaves held_back out", async () => {
+  await importWith({});
+  expect(screen.queryByText(/held back for open orders/)).toBeNull();
+});
+
+test("held-back line shows the API's held_back as-is (count 2, 3 held)", async () => {
+  await importWith({ held_back: 2 });
+  expect(screen.getByText("2 copies held back for open orders.")).toBeTruthy();
+});
+
+test("held-back line uses the singular for 1 copy", async () => {
+  await importWith({ held_back: 1 });
+  expect(screen.getByText("1 copy held back for open orders.")).toBeTruthy();
+});
+
+test("held-back line uses the plural and English number format, in the status region", async () => {
+  await importWith({ held_back: 1204 });
+  const line = screen.getByText("1,204 copies held back for open orders.");
+  expect(line.closest('[role="status"][aria-live="polite"]')).toBeTruthy();
+  expect(line.previousElementSibling.textContent).toBe("0 created · 2 updated · 0 skipped");
+});
+
+test("shelf-count help is linked to the file input", async () => {
+  loggedIn();
+  window.history.pushState({}, "", "/admin/import");
+  render(<Admin />);
+  const input = await screen.findByLabelText("CSV file");
+  expect(input.getAttribute("aria-describedby")).toBe("import-file-hint import-shelf-help");
+  const help = document.getElementById("import-shelf-help");
+  expect(help.textContent).toBe(
+    "count is the number of copies on your shelf. Copies in orders that are awaiting payment or paid are subtracted automatically.",
+  );
+  expect(help.querySelector("code").textContent).toBe("count");
+});
+
 test("file-level error says nothing was imported", async () => {
   loggedIn();
   window.history.pushState({}, "", "/admin/import");
