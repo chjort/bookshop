@@ -315,7 +315,8 @@ export function OrderDetail({ number, onExpired }) {
           {dialog === "ship" && <p>Ship to: {address.join(", ")}<br /><br />You can't undo this.</p>}
           {dialog === "cancel" && (
             <>
-              <p>The order is cancelled and its {books(copies)} {copies === 1 ? "goes" : "go"} back into stock. You can't undo this.</p>
+              <p>The order is cancelled and its {books(copies)} {copies === 1 ? "goes" : "go"} back into stock.</p>
+              <p>You can't undo this.</p>
               <p>Only cancel if no payment has arrived.</p>
             </>
           )}
