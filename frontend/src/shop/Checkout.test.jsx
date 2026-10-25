@@ -254,3 +254,30 @@ test("disabled 'Add to cart' is described by the cap message with an info icon (
   expect(add.disabled).toBe(true);
   expectDescribedByCapNote(add, "Only 2 in stock");
 });
+
+test("awaiting payment shows the instructions with a status line under the heading (#27)", async () => {
+  go("/order/tok123");
+  render(<Shop />);
+  expect(await screen.findByRole("heading", { name: "✓ Thank you for your order" })).toBeTruthy();
+  expect(screen.getByRole("status", { name: "" }).textContent).toBe("Status: Awaiting payment");
+  expect(screen.getByText("bc1qexample")).toBeTruthy();
+});
+
+test.each([
+  ["paid", "Paid", "Payment received. We're getting your order ready."],
+  ["shipped", "Shipped", "Your order is on its way."],
+  ["cancelled", "Cancelled", "This order was cancelled. Please don't send a payment."],
+])("a %s order hides the payment instructions and shows its status (#27)", async (status, label, message) => {
+  routes["/api/orders/tok123"] = () => reply(200, { ...ORDER, status });
+  go("/order/tok123");
+  render(<Shop />);
+  expect(await screen.findByRole("heading", { name: "Order BH-7K3Q9" })).toBeTruthy();
+  const line = screen.getAllByRole("status").find((el) => el.textContent.startsWith("Status:"));
+  expect(line.textContent).toContain(`Status: ${label}`);
+  expect(line.textContent).toContain(message);
+  expect(screen.queryByText("bc1qexample")).toBeNull();
+  expect(screen.queryByText(/0\.00043750/)).toBeNull();
+  expect(screen.queryByRole("heading", { name: "How to pay" })).toBeNull();
+  expect(screen.queryByRole("img")).toBeNull();
+  expect(screen.getByText(/Nygårdsvej 41/)).toBeTruthy();
+});

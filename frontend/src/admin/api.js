@@ -24,3 +24,8 @@ export function importCsv(file) {
     body: form,
   });
 }
+
+export const orders = (params) => call(`/api/admin/orders?${new URLSearchParams(params)}`);
+export const order = (number) => call(`/api/admin/orders/${encodeURIComponent(number)}`);
+export const orderAction = (number, action) =>
+  call(`/api/admin/orders/${encodeURIComponent(number)}/${action}`, json({}));

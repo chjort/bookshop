@@ -1,12 +1,15 @@
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import admin, catalogue, logsafe, orders
+from app import admin, admin_orders, catalogue, logsafe, orders
+from app.auth import ApiError, api_error_response
 from app.db import engine
 
 VERSION = os.environ.get("APP_VERSION", "dev")
@@ -15,7 +18,23 @@ STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).parent.parent / "s
 
 logsafe.install()
 app = FastAPI()
+app.add_exception_handler(ApiError, api_error_response)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    """Admin order routes answer 422 with {"code": ...} (ADR 0007), never {"detail": ...}."""
+    if not request.url.path.startswith("/api/admin/orders"):
+        return await request_validation_exception_handler(request, exc)
+    fields = [".".join(str(p) for p in e["loc"]) for e in exc.errors()]
+    return api_error_response(
+        request,
+        ApiError(422, "validation_error", "The request is not valid.", fields=fields),
+    )
+
+
 app.include_router(admin.router)
+app.include_router(admin_orders.router)
 app.include_router(catalogue.router)
 app.include_router(orders.router)
 

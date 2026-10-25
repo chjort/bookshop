@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { navigate, useLocation } from "../router.js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { linkTo, navigate, useLocation } from "../router.js";
 import * as api from "./api.js";
+import { OrderDetail, OrderList } from "./Orders.jsx";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const PAGE = 50;
@@ -11,6 +12,12 @@ export default function Admin() {
   const { path } = useLocation();
   const [user, setUser] = useState(undefined); // undefined = checking
   const [notice, setNotice] = useState("");
+
+  // Stable, so pages can list it as an effect dependency without refetching every render.
+  const expired = useCallback(() => {
+    setNotice("Your session has expired. Please log in again.");
+    setUser(null);
+  }, []);
 
   useEffect(() => {
     api.me().then((r) => setUser(r.status === 200 ? r.body.username : null), () => setUser(null));
@@ -30,10 +37,6 @@ export default function Admin() {
     );
   }
 
-  const expired = () => {
-    setNotice("Your session has expired. Please log in again.");
-    setUser(null);
-  };
   const doLogout = async () => {
     await api.logout().catch(() => {});
     setNotice("You're logged out.");
@@ -49,12 +52,21 @@ export default function Admin() {
           <a href="/admin/import" onClick={(e) => { e.preventDefault(); navigate("/admin/import"); }}>
             Import
           </a>{" "}
+          <a {...linkTo("/admin/orders")}>Orders</a>{" "}
           <button type="button" onClick={doLogout}>Log out</button>
         </nav>
       </header>
-      <main>{path === "/admin/import" ? <ImportPage onExpired={expired} /> : <Home />}</main>
+      <main>{page(path, expired)}</main>
     </>
   );
+}
+
+function page(path, expired) {
+  const order = path.match(/^\/admin\/orders\/([^/]+)$/);
+  if (order) return <OrderDetail key={order[1]} number={decodeURIComponent(order[1])} onExpired={expired} />;
+  if (path === "/admin/orders") return <OrderList onExpired={expired} />;
+  if (path === "/admin/import") return <ImportPage onExpired={expired} />;
+  return <Home />;
 }
 
 function Login({ notice, onLogin }) {
