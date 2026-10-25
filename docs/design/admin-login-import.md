@@ -156,7 +156,7 @@ Spinner only, no progress bar: the import is one synchronous request of a few se
 
 With no skipped rows, the banner is green ("All rows were imported.") and the table is hidden; "skipped" shows 0. Row numbers count the header as row 1, matching a spreadsheet. The table pages at 50 rows.
 
-**Held-back line (R1 import fix #108 / #109):** when the import result's `held_back` > 0, show "{n} copies held back for open orders." ("1 copy held back for open orders." when n = 1) as plain text directly under the counters. When `held_back` is 0 or absent, the line is not rendered. It lives in the same result region as the counters (`role="status"`, `aria-live="polite"`), so it is announced with them; it is informational, not a warning, so no icon or colour. `n` uses English number formatting (`1,204`).
+**Held-back line (R1 import fix #109):** when the import result's `held_back` > 0, show "{n} copies held back for open orders." ("1 copy held back for open orders." when n = 1) as plain text directly under the counters. When `held_back` is 0 or absent, the line is not rendered. It lives in the same result region as the counters (`role="status"`, `aria-live="polite"`), so it is announced with them; it is informational, not a warning, so no icon or colour. `n` uses English number formatting (`1,204`). What `held_back` counts (all held copies, or only those capped at the file's count) follows ADR 0003 as amended in #110; the UI copy just shows the API's value.
 
 ## 4. UI states
 
@@ -277,8 +277,8 @@ Numbers use English formatting: `3,912`, prices `€12.50`, dates `19 Oct 2026`,
 | Rows that can't be imported are listed with the reason, and the rest are still imported. | 3.5, 4 (partial success, no valid rows), 5 (row-level errors), 6, 9.3, 9.6, 9.7. **Fully met.** |
 | A file with thousands of rows imports without timing out. | 3.4, 4 (loading), 5 (large file, over 5 MB), 9.4, 9.8 |
 
-| Import result says how many copies were held back for open orders (R1 import fix #108 / #109). | 3.3 (shelf-count help), 3.5 (held-back line), 4 (success with copies held back), 5 (held copies exceed count), 6, 9.15 |
-| Re-importing stock never frees copies held by unshipped orders (R1 import fix #108 / #109, ADR 0003 amendment #110). | 3.3, 5 (held copies exceed count), 9.15 |
+| Import result says how many copies were held back for open orders (R1 import fix #109). | 3.3 (shelf-count help), 3.5 (held-back line), 4 (success with copies held back), 5 (held copies exceed count), 6, 9.15 |
+| Re-importing stock never frees copies held by unshipped orders (R1 import fix #109, ADR 0003 amendment #110). | 3.3, 5 (held copies exceed count), 9.15 |
 
 ## 9. Resolved decisions
 
@@ -305,7 +305,7 @@ From the user and pro-product-owner:
 13. **Shop name:** probooks (replaces the placeholder "Boghandel").
 14. **Display formats:** English number and price format everywhere in the UI: `3,912`, `€12.50`. CSV input formats (decision 2) are unchanged.
 
-From pro-product-owner and pro-architect (R1 import fix #108 / #109, ADR 0003 amendment #110):
+From pro-product-owner and pro-architect (R1 import fix #109, ADR 0003 amendment #110):
 
 15. **Shelf count and held-back copies:** `count` means copies on the shelf. Import sets stock to `count` minus copies held by Awaiting payment and Paid orders, never below 0. The result shows "{n} copies held back for open orders." only when `held_back` > 0, inside the existing result status region. A book whose held copies exceed its count gets stock 0 with no extra error.
 
