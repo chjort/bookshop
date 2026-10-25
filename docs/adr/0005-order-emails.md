@@ -1,6 +1,6 @@
 # ADR 0005: Order emails
 
-Status: Proposed (provider choice needs the user's confirmation via pro-product-owner) · Amends: ADR 0004 (`address_line2`) · Author: pro-architect · Task: #31 (feature #30) · Design: #32 (emails), PR #53 (order handling)
+Status: Deferred to Release 2 (the user moved #30 to R2 on 2026-10-21; provider choice still needs the user's confirmation) · Amends: ADR 0004 (`address_line2`) · Author: pro-architect · Task: #31 (feature #30) · Design: #32 (emails), PR #53 (order handling)
 
 ## Context
 
