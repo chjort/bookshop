@@ -46,12 +46,13 @@ def read_session(token: str | None) -> str | None:
 class ApiError(Exception):
     """An error with a {"code": ...} body (ADR 0007 amendment), never FastAPI's {"detail": ...}."""
 
-    def __init__(self, status: int, code: str, message: str, **extra):
+    def __init__(self, status: int, code: str, message: str, headers=None, **extra):
         self.status, self.body = status, {"code": code, "message": message, **extra}
+        self.headers = {"Cache-Control": "no-store", **(headers or {})}
 
 
 def api_error_response(request: Request, exc: ApiError) -> JSONResponse:
-    return JSONResponse(exc.body, status_code=exc.status, headers={"Cache-Control": "no-store"})
+    return JSONResponse(exc.body, status_code=exc.status, headers=exc.headers)
 
 
 def require_admin(request: Request) -> str:

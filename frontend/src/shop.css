@@ -42,3 +42,5 @@ button.danger { color: #a01818; border: 1px solid #a01818; background: #fff; }
 .two-col { display: flex; gap: 2em; flex-wrap: wrap; }
 .backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.4); display: grid; place-items: center; }
 .dialog { background: #fff; padding: 1em 1.5em; border-radius: 6px; max-width: 32em; width: calc(100% - 2em); }
+table.orders td.customer { max-width: 18em; }
+.trunc { display: block; max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

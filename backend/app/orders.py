@@ -86,10 +86,11 @@ class OrderOut(BaseModel):
     eur_per_btc: Decimal
     rate_source: str
     rate_fetched_at: datetime
-    amount_sats: int
-    amount_btc: str
-    btc_address: str
-    bip21_uri: str
+    # None unless the order is awaiting payment, so nobody pays a closed order (design #89)
+    amount_sats: int | None
+    amount_btc: str | None
+    btc_address: str | None
+    bip21_uri: str | None
     created_at: datetime
     # Delivery details, so the payment page can echo them (design 3.4)
     customer_name: str
@@ -151,7 +152,7 @@ def load_order(conn, where: str, params: dict, token: str | None = None) -> dict
         .all()
     )
     btc = f"{Decimal(o['amount_sats']) / 100_000_000:.8f}"
-    return {
+    out = {
         **{
             k: o[k]
             for k in (
@@ -179,6 +180,9 @@ def load_order(conn, where: str, params: dict, token: str | None = None) -> dict
         "amount_btc": btc,
         "bip21_uri": f"bitcoin:{o['btc_address']}?amount={btc}&message={o['order_number']}",
     }
+    if o["status"] != "awaiting_payment":
+        out.update(amount_sats=None, amount_btc=None, btc_address=None, bip21_uri=None)
+    return out
 
 
 @router.get("/rates/btc-eur", response_model=RateOut)

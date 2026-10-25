@@ -193,3 +193,15 @@ def mark_shipped(order_number: str):
 )
 def cancel(order_number: str):
     return transition(order_number, "awaiting_payment", "cancelled", "cancelled_at")
+
+
+@router.api_route(
+    "/{order_number}/{action}",
+    methods=["GET", "PUT", "PATCH", "DELETE"],
+    include_in_schema=False,
+)
+def wrong_method(order_number: str, action: str):
+    """A wrong method on an action path is 405 with a {"code"} body, not the SPA's 404."""
+    if action not in ("paid", "ship", "cancel"):
+        raise ApiError(404, "not_found", "Not found.")
+    raise ApiError(405, "method_not_allowed", "Use POST.", headers={"Allow": "POST"})

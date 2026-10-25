@@ -221,3 +221,64 @@ test("unknown order shows not found", async () => {
   render(<Admin />);
   expect((await screen.findByRole("alert")).textContent).toBe("Order BH-ZZZZZ doesn't exist.");
 });
+
+test("#92 dialog traps Tab, Esc works from anywhere, and focus returns to the opener", async () => {
+  handler = () => reply(200, detail());
+  at("/admin/orders/BH-7K3Q9");
+  render(<Admin />);
+  const opener = await screen.findByRole("button", { name: "Mark paid" });
+  opener.focus();
+  fireEvent.click(opener);
+  const dlg = screen.getByRole("dialog");
+  const back = within(dlg).getByRole("button", { name: "Go back" });
+  const confirm = within(dlg).getByRole("button", { name: "Mark paid" });
+  expect(document.activeElement).toBe(back);
+  fireEvent.keyDown(document.activeElement, { key: "Tab", shiftKey: true });
+  expect(document.activeElement).toBe(confirm);
+  confirm.focus();
+  fireEvent.keyDown(document.activeElement, { key: "Tab" });
+  expect(document.activeElement).toBe(back);
+  // focus can't land behind the modal
+  screen.getByRole("link", { name: "Orders" }).focus();
+  expect(dlg.contains(document.activeElement)).toBe(true);
+  // Esc from anywhere closes and returns focus to the button that opened the dialog
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(opener);
+  // Go back and a backdrop click also return focus
+  fireEvent.click(screen.getByRole("button", { name: "Cancel order" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Keep order" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel order" }));
+  fireEvent.click(screen.getByRole("button", { name: "Mark paid" }));
+  fireEvent.click(document.querySelector(".backdrop"));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Mark paid" }));
+});
+
+test("#92 Esc is ignored while the action is running", async () => {
+  let finish;
+  handler = (url, opts) =>
+    opts.method === "POST" ? new Promise((res) => { finish = res; }) : reply(200, detail());
+  at("/admin/orders/BH-7K3Q9");
+  render(<Admin />);
+  fireEvent.click(await screen.findByRole("button", { name: "Mark paid" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Mark paid" }));
+  expect(await screen.findByRole("button", { name: "Marking paid …" })).toBeTruthy();
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  finish({ status: 200, json: () => Promise.resolve(detail({ status: "paid", paid_at: "2026-10-21T09:00:00Z" })) });
+  expect(await screen.findByText("Order BH-7K3Q9 marked paid.")).toBeTruthy();
+});
+
+test("#93 long names and emails truncate with the full value in title", async () => {
+  const name = "Mette ".repeat(20).trim();
+  const email = `${"a".repeat(80)}@example.dk`;
+  handler = () => reply(200, { items: [row("7K3Q9", { customer_name: name, email })], page: 1, page_size: 25, total: 1, counts: COUNTS });
+  at("/admin/orders");
+  render(<Admin />);
+  await screen.findByRole("table");
+  const nameEl = screen.getByTitle(name);
+  expect(nameEl.className).toBe("trunc");
+  expect(nameEl.textContent).toBe(name); // full text stays the accessible name
+  expect(screen.getByTitle(email).className).toBe("trunc");
+});

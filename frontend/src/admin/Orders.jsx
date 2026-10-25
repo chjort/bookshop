@@ -106,7 +106,10 @@ export function OrderList({ onExpired }) {
               <tr key={o.order_number} onClick={(e) => e.target.closest("a") || navigate(`/admin/orders/${o.order_number}`)}>
                 <td><a className="mono" {...linkTo(`/admin/orders/${o.order_number}`)}>{o.order_number}</a></td>
                 <td>{dateTime(o.created_at)}</td>
-                <td>{o.customer_name}<br />{o.email}</td>
+                <td className="customer">
+                  <span className="trunc" title={o.customer_name}>{o.customer_name}</span>
+                  <span className="trunc" title={o.email}>{o.email}</span>
+                </td>
                 <td>{price(o.total_cents)}<br /><span className="mono">{btc(o.amount_sats)} BTC</span></td>
                 <td><StatusBadge status={o.status} /></td>
               </tr>
@@ -142,6 +145,8 @@ export function OrderDetail({ number, onExpired }) {
   const [dialog, setDialog] = useState(null); // action key
   const [banner, setBanner] = useState(null); // { kind, text }
   const bannerRef = useRef(null);
+  const opener = useRef(null); // the button that opened the dialog gets focus back on close
+  const restoreFocus = useRef(false);
 
   const load = useCallback(() => {
     setError(null);
@@ -158,6 +163,13 @@ export function OrderDetail({ number, onExpired }) {
   useEffect(() => { document.title = `Order ${number} – Admin – probooks`; }, [number]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (banner) bannerRef.current?.focus(); }, [banner]);
+  // After the dialog has unmounted (its focus guard is gone), give focus back to its opener.
+  useEffect(() => {
+    if (!dialog && restoreFocus.current) {
+      restoreFocus.current = false;
+      opener.current?.focus();
+    }
+  }, [dialog]);
 
   const back = <a {...linkTo("/admin/orders")}>‹ Back to orders</a>;
   if (error === "missing") return <><p role="alert">Order {number} doesn't exist.</p>{back}</>;
@@ -167,6 +179,15 @@ export function OrderDetail({ number, onExpired }) {
   const copies = order.lines.reduce((n, l) => n + l.qty, 0);
   const address = [order.customer_name, order.address_line, order.address_line2,
     `${order.postal_code} ${order.city}`].filter(Boolean);
+
+  function openDialog(action, e) {
+    opener.current = e.currentTarget;
+    setDialog(action);
+  }
+  function closeDialog() {
+    restoreFocus.current = true;
+    setDialog(null);
+  }
 
   async function run(action) {
     const a = ACTIONS[action];
@@ -233,12 +254,12 @@ export function OrderDetail({ number, onExpired }) {
       <h2>Actions</h2>
       {order.status === "awaiting_payment" && (
         <p>
-          <button type="button" className="primary" onClick={() => setDialog("paid")}>Mark paid</button>{" "}
-          <button type="button" className="danger" onClick={() => setDialog("cancel")}>Cancel order</button>
+          <button type="button" className="primary" onClick={(e) => openDialog("paid", e)}>Mark paid</button>{" "}
+          <button type="button" className="danger" onClick={(e) => openDialog("cancel", e)}>Cancel order</button>
         </p>
       )}
       {order.status === "paid" && (
-        <p><button type="button" className="primary" onClick={() => setDialog("ship")}>Mark shipped</button></p>
+        <p><button type="button" className="primary" onClick={(e) => openDialog("ship", e)}>Mark shipped</button></p>
       )}
       {note && <p>{note}</p>}
 
@@ -282,7 +303,7 @@ export function OrderDetail({ number, onExpired }) {
           action={dialog}
           title={ACTIONS[dialog].title(order.order_number)}
           onConfirm={() => run(dialog)}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         >
           {dialog === "paid" && (
             <>
@@ -309,7 +330,44 @@ function ConfirmDialog({ action, title, children, onConfirm, onClose }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const safe = useRef(null);
+  const box = useRef(null);
+  const busyRef = useRef(false);
+  busyRef.current = busy;
   useEffect(() => { safe.current?.focus(); }, []);
+
+  // Modal behaviour (design #89 §8): Tab cycles inside the dialog, focus can't leave it,
+  // and Esc backs out from anywhere unless the request is running.
+  useEffect(() => {
+    const focusables = () => [...box.current.querySelectorAll("button:not([disabled]), a[href], input, [tabindex='0']")];
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (!busyRef.current) onClose();
+      } else if (e.key === "Tab") {
+        const items = focusables();
+        if (items.length === 0) return e.preventDefault();
+        const first = items[0];
+        const last = items[items.length - 1];
+        const inside = box.current.contains(document.activeElement);
+        if (e.shiftKey && (document.activeElement === first || !inside)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !inside)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    const onFocusIn = (e) => {
+      if (box.current && !box.current.contains(e.target)) (focusables()[0] || box.current).focus();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("focusin", onFocusIn);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocusIn);
+    };
+  }, [onClose]);
 
   async function confirm() {
     setBusy(true);
@@ -326,8 +384,7 @@ function ConfirmDialog({ action, title, children, onConfirm, onClose }) {
   return (
     <div className="backdrop" onClick={close}>
       <div role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-body"
-        className="dialog" onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => { if (e.key === "Escape") close(); }}>
+        className="dialog" ref={box} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <h2 id="dlg-title">{title}</h2>
         <div id="dlg-body">{children}</div>
         {failed && <p role="alert">The change wasn't saved. Please try again.</p>}

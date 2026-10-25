@@ -186,3 +186,55 @@ def test_list_pages_25_at_a_time(admin, order):
     one, two = (admin.get(f"/api/admin/orders?page={p}").json() for p in (1, 2))
     assert len(one["items"]) == 25 and len(two["items"]) == 1 and two["total"] == 26
     assert two["items"][0]["order_number"] == order[0]  # oldest last
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/api/admin/orders?page=0",
+        "/api/admin/orders?page=abc",
+        "/api/admin/orders?status=foo",
+        "/api/admin/orders?q=" + "x" * 101,
+    ],
+)
+def test_validation_errors_use_the_code_shape(admin, url):
+    """#91: 422s on admin order routes are {"code": ...}, never FastAPI's {"detail": ...}."""
+    r = admin.get(url)
+    assert r.status_code == 422
+    body = r.json()
+    assert body["code"] == "validation_error" and "detail" not in body
+    assert body["fields"] and all(f.startswith("query.") for f in body["fields"])
+    assert r.headers["cache-control"] == "no-store"
+
+
+def test_validation_errors_elsewhere_keep_fastapi_shape(client):
+    r = client.post("/api/admin/login", json={})
+    assert r.status_code == 422 and "detail" in r.json()
+
+
+def test_wrong_method_on_an_action_is_405_with_code(admin, client, order):
+    number, _ = order
+    r = admin.get(f"/api/admin/orders/{number}/paid")
+    assert r.status_code == 405 and r.json()["code"] == "method_not_allowed"
+    assert r.headers["allow"] == "POST" and "detail" not in r.json()
+    assert admin.get(f"/api/admin/orders/{number}/nope").json()["code"] == "not_found"
+    client.cookies.clear()
+    assert client.get(f"/api/admin/orders/{number}/paid").status_code == 401
+
+
+@pytest.mark.parametrize("actions", [[], ["paid"], ["paid", "ship"], ["cancel"]])
+def test_public_order_hides_payment_details_unless_awaiting(admin, actions):
+    """Only an awaiting-payment order exposes the BTC address, amount and QR URI."""
+    ids = seed()
+    placed = place(admin, [{"book_id": ids["Alfa"], "qty": 1}]).json()
+    for action in actions:
+        assert act(admin, placed["order_number"], action).status_code == 200
+    body = admin.get(f"/api/orders/{placed['token']}").json()
+    hidden = ("btc_address", "bip21_uri", "amount_btc", "amount_sats")
+    if not actions:
+        assert body["status"] == "awaiting_payment"
+        assert all(body[k] for k in hidden)
+    else:
+        assert body["status"] != "awaiting_payment"
+        assert all(body[k] is None for k in hidden)
+        assert body["total_cents"] and body["lines"]
