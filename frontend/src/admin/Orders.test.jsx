@@ -142,7 +142,9 @@ test("mark paid: dialog copy, focus on Go back, POST JSON, success banner gets f
   expect(document.activeElement.textContent).toBe("Go back");
   fireEvent.click(within(dlg).getByRole("button", { name: "Mark paid" }));
   const banner = await screen.findByText("Order BH-7K3Q9 marked paid.");
-  expect(document.activeElement).toBe(banner);
+  // findByText resolves when the banner is in the DOM; the useEffect that focuses it can run
+  // in a later scheduler task (#102), so wait for focus instead of asserting it on the same tick.
+  await waitFor(() => expect(document.activeElement).toBe(banner));
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: "Mark shipped" })).toBeTruthy();
   expect(screen.getByText("Paid orders can't be cancelled in Release 1.")).toBeTruthy();
