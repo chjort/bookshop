@@ -90,6 +90,13 @@ test("checkout validates the Danish address", async () => {
   expect(alert.textContent).toContain("Postal code must be 4 digits");
 });
 
+// "Place order" is rendered disabled until the BTC rate loads; clicking it earlier is a no-op.
+async function placeOrderButton() {
+  const button = await screen.findByRole("button", { name: "Place order" });
+  await waitFor(() => expect(button.disabled).toBe(false));
+  return button;
+}
+
 test("summary shows EUR and BTC, places the order once and opens the payment page", async () => {
   cartLine(2);
   go("/checkout");
@@ -119,7 +126,7 @@ test("a failed submit retries with the same idempotency key", async () => {
   go("/checkout");
   render(<Shop />);
   fillDelivery();
-  fireEvent.click(await screen.findByRole("button", { name: "Place order" }));
+  fireEvent.click(await placeOrderButton());
   expect((await screen.findByRole("alert")).textContent).toContain("Your order wasn't placed.");
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   await waitFor(() => expect(posted).toHaveLength(2));
@@ -142,7 +149,7 @@ test("stock changed on submit returns to the cart with a notice", async () => {
   go("/checkout");
   render(<Shop />);
   fillDelivery();
-  fireEvent.click(await screen.findByRole("button", { name: "Place order" }));
+  fireEvent.click(await placeOrderButton());
   expect(await screen.findByText("Nothing has been ordered yet. Check your cart and try again.")).toBeTruthy();
   expect(window.location.pathname).toBe("/cart");
 });
