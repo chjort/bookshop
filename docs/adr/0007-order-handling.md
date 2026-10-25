@@ -148,3 +148,14 @@ Errors: 401 `not_authenticated`, 404 `not_found`, 409 `invalid_transition`, 422 
 - `status_changed_at` is a new column; old rows get `created_at`.
 - No audit log beyond the `*_at` timestamps. One owner doesn't need one in R1.
 - Cancelling restores stock even if the book was re-imported since. The re-import (R2) sets counts from the CSV, and the owner reconciles.
+
+## Amendment (2026-10-25): request edge cases for R1
+
+Answers from pro-qa's #28 test plan.
+
+- **CSRF.** Order actions need only `Content-Type: application/json` (ADR 0003). They don't need `X-Requested-With`, which only the multipart import requires. Without JSON the response is 415 `{"code": "unsupported_media_type"}`.
+- **Check order.** `require_admin` runs first. Without a session the response is 401 `{"code": "not_authenticated"}` whatever the Content-Type, and nothing changes. Every admin error body uses `{"code": ...}`, never FastAPI's `{"detail": ...}`.
+- **Order number in the URL.** It's upper-cased before lookup, so lower case matches. An unknown order number is 404 `{"code": "not_found"}`.
+- **Paging.** `page` is 1 or more, so 0 or below is 422. A page past the end is 200 with empty `items` and the real `total` and `counts`.
+- **Search length.** If `q` is longer than 100 characters the response is 422. It isn't cut to 100 like the shop search, so the owner can see their search was wrong.
+- **Email status.** Emails are R2 (#30). In R1 the API has no "emails not set up" flag and the admin page shows no email status.
