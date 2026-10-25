@@ -171,7 +171,9 @@ All three actions are irreversible in R1, so each gets a modal confirmation. R1 
 | Cancel order BH-7K3Q9?                          |
 |                                                 |
 | The order is cancelled and its 3 books go back  |
-| into stock. You can't undo this.                |
+| into stock.                                     |
+|                                                 |
+| You can't undo this.                            |
 |                                                 |
 | Only cancel if no payment has arrived.          |
 |                                                 |
@@ -179,6 +181,7 @@ All three actions are irreversible in R1, so each gets a modal confirmation. R1 
 +-------------------------------------------------+
 ```
 
+- **"You can't undo this."** is its own paragraph in all three dialogs (paid, shipped, cancel), never joined to the sentence before it.
 - **Book count {n}** (cancel dialog and cancel success banner): the total number of copies on the order, the sum of all line quantities (2 × A + 1 × B = 3), because that is how much stock goes back. Not the number of titles. Singular "1 book", plural "{n} books".
 - The confirm button repeats the verb (never "OK"/"Yes"). Focus starts on the safe button (Go back / Keep order). Esc and clicking outside = safe button.
 - While the request runs, the confirm button reads "Marking paid …" / "Marking shipped …" / "Cancelling …", both buttons disabled, Esc ignored.
@@ -242,7 +245,7 @@ When `paid_email_status` or `shipped_email_status` is `failed` (or `pending` for
 | Two orders with the same BTC amount | Possible but rare; list shows placed time to tell them apart. |
 | Cancelled order later paid by the customer | Out of scope R1; owner refunds by hand outside the shop (D2). |
 | Book deleted or hidden after the order | Line items show the stored title and price from the order, not the live book. |
-| Very long names / addresses | Wrap; never truncate on the detail page. List truncates with ellipsis, full value in `title` and accessible name. |
+| Very long names / addresses | Wrap; never truncate on the detail page. **R2 only (#95):** long values (incl. emails with no break points) wrap with `overflow-wrap: anywhere` and never cause sideways scroll at 320 px. List truncates with ellipsis, full value in `title` and accessible name. |
 | Many orders | Server-side pagination, 25 per page (D7). |
 | Old unpaid orders | No auto-cancel in R1; stock stays reserved until the owner cancels (D6). |
 | **R2 only (#30):** Email fails or stays pending > 5 min | Status stays saved; banner + list marker (3.5); owner emails by hand. |
