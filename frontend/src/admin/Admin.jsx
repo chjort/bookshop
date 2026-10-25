@@ -200,16 +200,20 @@ function ImportPage({ onExpired }) {
         Required columns: title, author, ISBN, genre, price, count. Upper/lower case doesn't
         matter. Comma or semicolon as separator.
       </p>
+      <p id="import-shelf-help">
+        <code>count</code> is the number of copies on your shelf. Copies in orders that are
+        awaiting payment or paid are subtracted automatically.
+      </p>
       <form onSubmit={submit} aria-busy={busy}>
         <label htmlFor="csv">CSV file</label>
         <input id="csv" ref={input} type="file" accept=".csv,text/csv" disabled={busy}
-          aria-describedby="csv-hint" aria-invalid={fileError ? "true" : undefined}
+          aria-describedby="import-file-hint import-shelf-help" aria-invalid={fileError ? "true" : undefined}
           onChange={(e) => choose(e.target.files[0])} />
-        <p id="csv-hint">.csv only, UTF-8, max 5 MB.</p>
+        <p id="import-file-hint">.csv only, UTF-8, max 5 MB.</p>
         {fileError && <p role="alert">{fileError}</p>}
         <button type="submit" disabled={busy}>{busy ? "Importing …" : "Import"}</button>
       </form>
-      <div aria-live="polite">
+      <div role="status" aria-live="polite">
         {busy && <p role="status">Importing {file?.name} … This takes a few seconds.</p>}
         {result && <Result result={result} onAgain={() => setResult(null)} />}
       </div>
@@ -219,7 +223,7 @@ function ImportPage({ onExpired }) {
 
 function Result({ result, onAgain }) {
   const [page, setPage] = useState(0);
-  const { created, updated, skipped, errors, filename } = result;
+  const { created, updated, skipped, held_back: heldBack, errors, filename } = result;
   const banner =
     skipped === 0 ? "All rows were imported."
       : created + updated === 0 ? "No rows were imported."
@@ -230,6 +234,9 @@ function Result({ result, onAgain }) {
       <h2>Import finished: {filename}</h2>
       <p role={skipped ? "alert" : undefined}>{banner}</p>
       <p>{num(created)} created · {num(updated)} updated · {num(skipped)} skipped</p>
+      {heldBack > 0 && (
+        <p>{num(heldBack)} {heldBack === 1 ? "copy" : "copies"} held back for open orders.</p>
+      )}
       {skipped > 0 && (
         <>
           <table>

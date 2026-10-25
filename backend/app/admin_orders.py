@@ -154,6 +154,19 @@ def transition(order_number: str, expected: Status, new: Status, stamp: str) -> 
         ).scalar()
         if order_id is not None and new == "cancelled":
             # Same transaction, and only when this request won: stock can't come back twice.
+            # Lock the books in id order first, like placement and import, so a cancel can't
+            # deadlock with an import that holds some of the same rows (ADR 0003).
+            book_ids = (
+                conn.execute(
+                    text("SELECT book_id FROM order_lines WHERE order_id = :id"), {"id": order_id}
+                )
+                .scalars()
+                .all()
+            )
+            conn.execute(
+                text("SELECT id FROM books WHERE id = ANY(:ids) ORDER BY id FOR UPDATE"),
+                {"ids": book_ids},
+            )
             conn.execute(
                 text(
                     "UPDATE books b SET stock = b.stock + l.qty FROM order_lines l "
