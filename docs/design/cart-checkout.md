@@ -154,6 +154,7 @@ No phone field and no autofill of City in R1. Mobile: one column, full-width fie
 Desktop
 +--------------------------------------------------------------------------+
 | [✓] Thank you for your order                                             |
+| Status: Awaiting payment                                                 |  <- role="status"
 |                                                                          |
 | [!] Save this page. The payment details are not sent by email.           |
 |     [ Print / save page ]                                                |
@@ -182,14 +183,36 @@ Desktop
 +--------------------------------------------------------------------------+
 ```
 
-Mobile: single column in this order: thanks, save notice + button, the reference box, amount, address, QR, steps, what next. The reference box sits right next to (desktop) or directly above (mobile) the address, so the two are seen together.
+Mobile: single column in this order: thanks, status, save notice + button, the reference box, amount, address, QR, steps, what next. The reference box sits right next to (desktop) or directly above (mobile) the address, so the two are seen together.
 
 - **Order number = payment reference:** short and easy to read aloud (`4827-KM` is illustrative: avoid look-alike characters such as 0/O and 1/I). Format per pro-architect.
 - **URL:** uses a separate hard-to-guess token defined by pro-architect, never the order number.
 - The QR code is a BIP 21 URI (`bitcoin:{address}?amount={btc}`), generated in the browser, dark on white with a quiet zone. The address shows in groups of 4 characters for readability (spacing via CSS), and it copies without spaces.
-- No live order status in R1 (R3 #42). The page shows instructions only.
+- **Payment instructions only while Awaiting payment** (#28 Q8). The page reads the order status when it loads (no live updates in R1, R3 #42). Once the order is Paid, Shipped or Cancelled, the page hides the BTC address, amount, QR code, rate, reference box, "How to pay" steps, "What happens next?", save notice and "Print / save page", and shows a status message instead (wireframe below).
+- **Status labels are human-readable:** Awaiting payment · Paid · Shipped · Cancelled. Never the raw database value (`awaiting_payment`, `paid`, `shipped`, `cancelled`), and never lower case. One map, shared with the admin `StatusBadge`.
 
-**Print stylesheet (`@media print`):** hide the header, search, cart and buttons. Print the shop name, the reference (large), the amount in BTC and EUR, the full address in monospace (not grouped or truncated), the QR code at ≥ 3 cm, the steps, what happens next, and the order and delivery details. Black on white, no backgrounds, fits on one A4 page. "Print / save page" calls `window.print()`, where the browser also offers "Save as PDF".
+Payment page after a status change (here Cancelled):
+
+```
++--------------------------------------------------------------------------+
+| Order 4827-KM                                                            |  <- <h1>
+|                                                                          |
+| Status: Cancelled                                                        |  <- role="status"
+| This order was cancelled. Please don't send a payment.                   |
+|                                                                          |
+| Order: 2 × Book title, 1 × Another title · Total €36.00                  |
+| Delivery: Mette Hansen, c/o Jensen, Nygårdsvej 41, 2100 København Ø      |
++--------------------------------------------------------------------------+
+```
+
+| Status | Heading | Status line + message | Instructions (address, amount, QR, rate) |
+|---|---|---|---|
+| Awaiting payment | Thank you for your order | Status: Awaiting payment | Shown (wireframe above) |
+| Paid | Order {ref} | Status: Paid · Payment received. We're getting your order ready. | Hidden |
+| Shipped | Order {ref} | Status: Shipped · Your order is on its way. | Hidden |
+| Cancelled | Order {ref} | Status: Cancelled · This order was cancelled. Please don't send a payment. | Hidden |
+
+**Print stylesheet (`@media print`, Awaiting payment only; the other statuses have no print button):** hide the header, search, cart and buttons. Print the shop name, the reference (large), the amount in BTC and EUR, the full address in monospace (not grouped or truncated), the QR code at ≥ 3 cm, the steps, what happens next, and the order and delivery details. Black on white, no backgrounds, fits on one A4 page. "Print / save page" calls `window.print()`, where the browser also offers "Save as PDF".
 
 ## 4. BTC amount: rounding and labelling
 
@@ -219,7 +242,11 @@ Mobile: single column in this order: thanks, save notice + button, the reference
 | Duplicate protection (requirement) | "Try again" after a failure or timeout must never create a second order. If the first attempt succeeded, the retry opens that order's payment page. pro-architect defines the mechanism. |
 | Submit failure | "Your order wasn't placed. Nothing has been charged or reserved. Please try again." [Try again]. Entered details are kept. On a timeout, "Try again" is safe (duplicate protection). |
 | Order placed | Payment screen (3.4). The cart empties. |
-| Payment page reloaded / revisited | Same content from the saved order (rate locked). |
+| Payment page reloaded / revisited | Same content from the saved order (rate locked) while Awaiting payment. |
+| Payment page, Awaiting payment | Instructions shown (3.4) with "Status: Awaiting payment" under the heading. |
+| Payment page, Paid | Instructions hidden (no BTC address, amount, QR or rate). Heading "Order {ref}", "Status: Paid", "Payment received. We're getting your order ready." Order and delivery summary stay. |
+| Payment page, Shipped | Instructions hidden. "Status: Shipped", "Your order is on its way." Order and delivery summary stay. |
+| Payment page, Cancelled | Instructions hidden. "Status: Cancelled", "This order was cancelled. Please don't send a payment." Order and delivery summary stay. |
 | Copy success | "Copied" appears beside the button for 2 s and is announced. On failure: "Couldn't copy. Select the text and copy it yourself." |
 | Print / save | "Print / save page" opens the browser print dialog with the print layout (3.4). |
 
@@ -285,6 +312,11 @@ Mobile: single column in this order: thanks, save notice + button, the reference
 | What next (R1) | What happens next? · The shop owner checks the payment by hand. This can take up to a few days. Your books are reserved for you meanwhile. |
 | What next, email sentence | **R2 only (#30), not in R1:** You'll get an email when the payment is confirmed, and again when the books are shipped. |
 | Save notice | Save this page. The payment details are not sent by email. |
+| Payment page status labels | Status: {label} · Awaiting payment · Paid · Shipped · Cancelled (never raw database values) |
+| Payment page heading after a status change | Order {ref} |
+| Status message, Paid | Payment received. We're getting your order ready. |
+| Status message, Shipped | Your order is on its way. |
+| Status message, Cancelled | This order was cancelled. Please don't send a payment. |
 | Print button | Print / save page |
 
 R1 copy has no "we'll email you" sentences: payment and shipping emails moved to R2 (#30).
@@ -302,7 +334,7 @@ Numbers: `€36.00`, `0.00056250 BTC`, `1 BTC = €64,000.00`, time 24-hour `23:
 - **Rate unavailable / submit failure:** `role="alert"`; the disabled "Place order" explains why via `aria-describedby`.
 - **Reference:** the reference box is a labelled region (`<section aria-labelledby>` "Payment reference") and the code is plain text in at least 24 px, with no look-alike characters. Its copy button follows the copy-button rules.
 - **Print / save:** a real `<button>` named "Print / save page". The save notice is plain text near the top, not a dismissible toast, so it's read in order. The print layout keeps the reference, amount and address as real text, so a saved PDF stays searchable and readable by screen readers. Don't rely on colour in print.
-- **Payment screen:** focus moves to the "Thank you for your order" heading. The BTC address is in a monospaced font at ≥ 16 px; the visual 4-character spacing uses CSS, not real spaces, so screen readers and copy get the plain address.
+- **Payment screen:** focus moves to the "Thank you for your order" heading (or "Order {ref}" once the order is no longer awaiting payment). The status line ("Status: Paid" + message) is in a `role="status"` element right after the `<h1>`, as plain text. Hidden instructions are not rendered at all (not just visually hidden), so screen readers and copy never get the address or amount of a paid, shipped or cancelled order. The BTC address is in a monospaced font at ≥ 16 px; the visual 4-character spacing uses CSS, not real spaces, so screen readers and copy get the plain address.
 - Contrast: text ≥ 4.5:1, controls and focus ≥ 3:1; QR dark on white. Targets ≥ 24×24 px (44 px on mobile). Reflow at 320 px and 200 % zoom.
 - No time limits in R1. If R2 adds quote expiry, it must warn and allow a refresh (WCAG 2.2.1).
 
@@ -319,6 +351,7 @@ Numbers: `€36.00`, `0.00056250 BTC`, `1 BTC = €64,000.00`, time 24-hour `23:
 | Placing the order reserves the stock (stock goes down at once). | 2, 3.3 note, 3.4 "reserved", 5 (sold out on submit, duplicate protection), 6 (last copy), 10.6 |
 | At most 10 copies of a title per order (#81, #79). | 3.1 (cap, order-limit message), 5 (order limit), 6 (many copies), 7 (cap messages), 8 (cart) |
 | The order is saved as awaiting payment. No private keys are stored. | 1 (ADR 0001), 3.4 (what happens next), 5 (payment page revisited) |
+| The payment page shows the instructions only while the order is Awaiting payment; Paid, Shipped and Cancelled show a status message and no BTC address, amount, QR or rate, with human-readable status labels (#28 Q8). | 3.4 (status table, wireframe), 5 (payment page by status), 7 (status labels and messages), 8 (payment screen) |
 
 ## 10. Resolved decisions
 
@@ -338,5 +371,6 @@ Answered by pro-product-owner.
 12. **Price format:** English format everywhere, e.g. `€12.50`, `€64,000.00`; BTC with a dot decimal, `0.00056250 BTC`.
 13. **Quantity cap (#81):** at most 10 copies per title per order and never more than stock; the cart caps at `min(stock, 10)`. ADR 0004 is unchanged.
 14. **Emails:** order-paid and shipped emails are R2 (#30). Every "we'll email you" sentence in this spec is R2 only and is left out of R1 copy.
+15. **Payment page by status (#28 Q8):** instructions only while Awaiting payment; Paid, Shipped and Cancelled hide them and show a status message; human-readable labels (3.4).
 
 Pending pro-architect: rounding and storage, the rate source and refresh interval, the order number format, the URL token, and the duplicate-protection mechanism.
