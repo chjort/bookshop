@@ -49,6 +49,14 @@ class ShippingIn(BaseModel):
     postal_code: Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\d{4}$")]
     city: Annotated[Text, StringConstraints(max_length=100)]
 
+    @field_validator("*")
+    @classmethod
+    def no_control_characters(cls, v):
+        # Postgres can't store NUL, and no address field needs control characters (#82).
+        if isinstance(v, str) and any(ord(c) < 32 or ord(c) == 127 for c in v):
+            raise ValueError("must not contain control characters")
+        return v
+
     @field_validator("address_line2")
     @classmethod
     def blank_is_none(cls, v):
