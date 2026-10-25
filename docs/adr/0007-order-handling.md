@@ -158,4 +158,4 @@ Answers from pro-qa's #28 test plan.
 - **Order number in the URL.** It's upper-cased before lookup, so lower case matches. An unknown order number is 404 `{"code": "not_found"}`.
 - **Paging.** `page` is 1 or more, so 0 or below is 422. A page past the end is 200 with empty `items` and the real `total` and `counts`.
 - **Search length.** If `q` is longer than 100 characters the response is 422. It isn't cut to 100 like the shop search, so the owner can see their search was wrong.
-- **Email status.** Emails are R2 (#30). In R1 the API has no "emails not set up" flag and the admin page shows no email status.
+- **Emails are R2 (#30).** R1 has no `paid_email_status`, `shipped_email_status`, `paid_email_sent_at` or `shipped_email_sent_at` columns or fields, and no `EmailStatus` type. Mark paid and ship only set `status` and `paid_at` / `shipped_at`, and nothing is sent after commit. There's no "emails not set up" flag, email status, or "Email not sent" banner. R2 adds the columns in a migration together with ADR 0005. Everything else in this ADR stays as it is.
