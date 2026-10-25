@@ -6,7 +6,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import admin, catalogue, logsafe, orders
+from app import admin, admin_orders, catalogue, logsafe, orders
+from app.auth import ApiError, api_error_response
 from app.db import engine
 
 VERSION = os.environ.get("APP_VERSION", "dev")
@@ -15,7 +16,9 @@ STATIC_DIR = Path(os.environ.get("STATIC_DIR", Path(__file__).parent.parent / "s
 
 logsafe.install()
 app = FastAPI()
+app.add_exception_handler(ApiError, api_error_response)
 app.include_router(admin.router)
+app.include_router(admin_orders.router)
 app.include_router(catalogue.router)
 app.include_router(orders.router)
 

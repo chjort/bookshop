@@ -6,7 +6,8 @@ import time
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from fastapi import HTTPException, Request
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from itsdangerous import BadSignature, URLSafeSerializer
 from sqlalchemy import text
 
@@ -42,11 +43,28 @@ def read_session(token: str | None) -> str | None:
     return data["u"]
 
 
+class ApiError(Exception):
+    """An error with a {"code": ...} body (ADR 0007 amendment), never FastAPI's {"detail": ...}."""
+
+    def __init__(self, status: int, code: str, message: str, **extra):
+        self.status, self.body = status, {"code": code, "message": message, **extra}
+
+
+def api_error_response(request: Request, exc: ApiError) -> JSONResponse:
+    return JSONResponse(exc.body, status_code=exc.status, headers={"Cache-Control": "no-store"})
+
+
 def require_admin(request: Request) -> str:
     username = read_session(request.cookies.get(COOKIE))
     if username is None:
-        raise HTTPException(401, "Not logged in")
+        raise ApiError(401, "not_authenticated", "Not logged in.")
     return username
+
+
+def require_json(request: Request):
+    """CSRF guard for admin mutations (ADR 0003): a cross-site form can't send JSON."""
+    if not request.headers.get("content-type", "").startswith("application/json"):
+        raise ApiError(415, "unsupported_media_type", "Content-Type must be application/json.")
 
 
 def check_credentials(username: str, password: str) -> str:

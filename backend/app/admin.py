@@ -3,7 +3,14 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app import csv_import
-from app.auth import COOKIE, SESSION_SECONDS, check_credentials, make_session, require_admin
+from app.auth import (
+    COOKIE,
+    SESSION_SECONDS,
+    check_credentials,
+    make_session,
+    require_admin,
+    require_json,
+)
 from app.db import engine
 
 MAX_BYTES = 5 * 1024 * 1024
@@ -15,11 +22,6 @@ router = APIRouter(prefix="/api/admin")
 class LoginIn(BaseModel):
     username: str
     password: str
-
-
-def require_json(request: Request):
-    if not request.headers.get("content-type", "").startswith("application/json"):
-        raise HTTPException(415, "Content-Type must be application/json")
 
 
 @router.post("/login", dependencies=[Depends(require_json)])

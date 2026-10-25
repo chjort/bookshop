@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import { linkTo, navigate } from "../router.js";
 import { CapNote, MAX_PER_TITLE, SHIPPING_CENTS, maxQty, readCart, subtotal, useCart, writeCart } from "./cart.js";
-import { price } from "./format.js";
+import { STATUS, price } from "./format.js";
 
 const RATE_ERROR =
   "We can't fetch the bitcoin rate right now, so we can't work out the BTC amount. Please try again in a moment.";
@@ -359,7 +359,7 @@ function Summary({ lines, delivery, onEdit }) {
   );
 }
 
-function CopyButton({ value, label }) {
+export function CopyButton({ value, label }) {
   const [state, setState] = useState("");
   const copy = () => navigator.clipboard.writeText(value).then(
     () => setState("Copied"),
@@ -371,6 +371,12 @@ function CopyButton({ value, label }) {
     </>
   );
 }
+
+const STATUS_MESSAGE = {
+  paid: "Payment received. We're getting your order ready.",
+  shipped: "Your order is on its way.",
+  cancelled: "This order was cancelled. Please don't send a payment.",
+};
 
 export function OrderPage({ token }) {
   const [order, setOrder] = useState(null);
@@ -388,6 +394,7 @@ export function OrderPage({ token }) {
     if (!order) return;
     document.title = `Order ${order.order_number} – probooks`;
     heading.current?.focus();
+    if (order.status !== "awaiting_payment") return;
     QRCode.toDataURL(order.bip21_uri, { margin: 1, width: 192 }).then(setQr, () => {});
   }, [order]);
 
@@ -403,10 +410,31 @@ export function OrderPage({ token }) {
   const ref = order.order_number;
   const address = [order.customer_name, order.address_line, order.address_line2,
     `${order.postal_code} ${order.city}`].filter(Boolean).join(", ");
+  const summary = (
+    <p>
+      Order: {order.lines.map((l) => `${l.qty} × ${l.title}`).join(", ")} · Total {price(order.total_cents)}
+      <br />Delivery: {address}
+    </p>
+  );
+  const status = `Status: ${STATUS[order.status].label}`;
+
+  if (order.status !== "awaiting_payment") {
+    // Instructions are not rendered at all once the order is paid, shipped or cancelled.
+    return (
+      <article className="payment">
+        <h1 tabIndex={-1} ref={heading}>Order {ref}</h1>
+        <div role="status">
+          <p>{status}</p>
+          <p>{STATUS_MESSAGE[order.status]}</p>
+        </div>
+        {summary}
+      </article>
+    );
+  }
   return (
     <article className="payment">
       <h1 tabIndex={-1} ref={heading}>✓ Thank you for your order</h1>
-      {order.status !== "awaiting_payment" && <p>Status: {order.status.replace("_", " ")}</p>}
+      <p role="status">{status}</p>
       <p><strong>Save this page. The payment details are not sent by email.</strong>{" "}
         <button type="button" onClick={() => window.print()}>Print / save page</button></p>
 
@@ -442,10 +470,7 @@ export function OrderPage({ token }) {
         The shop owner checks the payment by hand. This can take up to a few days. Your books are
         reserved for you meanwhile.
       </p>
-      <p>
-        Order: {order.lines.map((l) => `${l.qty} × ${l.title}`).join(", ")} · Total {price(order.total_cents)}
-        <br />Delivery: {address}
-      </p>
+      {summary}
     </article>
   );
 }
