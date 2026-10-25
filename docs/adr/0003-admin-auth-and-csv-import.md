@@ -135,3 +135,28 @@ Recorded by pro-architect. Decided for Release 1 by pro-product-owner. Implement
   - Concurrency, over two DB connections: an order placed during an import ends with the correct stock.
   - Concurrency, over two DB connections: a cancel of an order with several books during an import finishes with no deadlock and the correct stock.
   - The import page shows `held_back`.
+
+## Amendment 2026-10-25 (2): stock may go below 0
+
+Recorded by pro-architect for #113. It replaces the floor at 0 from the amendment above. Everything else in that amendment stays.
+
+**Context.** The import set `stock = GREATEST(count - held, 0)`. When the count is below the held copies, the floor forgets the shortfall. A later cancel does `stock = stock + qty` and gives back copies the shelf never had, so the shop can sell copies that don't exist (#113).
+
+**Options.**
+- **Store `stock = count - held` with no floor, so it can be negative** (chosen). Placement and cancel stay `stock - qty` and `stock + qty`, and those are correct from any starting value. A negative stock means the shop is short that many copies for orders it already took.
+- Store the shelf count in a new column and have cancel recompute `max(0, shelf - held)`. That needs a new column and makes cancel depend on the import's rule. Rejected.
+- Document it and have the owner re-import after cancelling. That's easy to forget, and the bug is selling copies that don't exist. Rejected.
+
+**Decision.**
+- The import sets `stock = count - held`, with no floor.
+- Migration: drop the `CHECK (stock >= 0)` on `books`. Placement still refuses an order when `stock < qty`, so a customer can never push stock below 0. Only an import can.
+- Read side: a book is for sale only when `stock > 0`. Every place that shows or sorts by stock uses `GREATEST(stock, 0)`. That covers the catalogue's `in_stock`, the book's `stock` field, the cart cap, the sold-out-last ordering (`stock = 0` becomes `stock <= 0`, and its index changes too) and the `available` count in a 409 `stock_changed`. The API never returns a negative number.
+- `held_back` is unchanged: `min(count, held)` per book, summed, which now equals `count - GREATEST(stock, 0)`.
+
+**Consequences.**
+- Cancel needs no change. With count 1 and 3 held (#113), the import gives stock −2. Cancelling the 2-copy order gives 0, which is correct.
+- One small migration. Every read of `stock` has to be clamped, and a test should pin each one.
+- Tests:
+  - The #113 repro ends with stock 0.
+  - A count below held stores a negative stock, the book reads as sold out with `stock` 0, and placement refuses it.
+  - Cancels that bring stock back above 0 make the book sellable again with the right count.
