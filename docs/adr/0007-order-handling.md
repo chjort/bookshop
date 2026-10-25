@@ -154,7 +154,7 @@ Errors: 401 `not_authenticated`, 404 `not_found`, 409 `invalid_transition`, 422 
 Answers from pro-qa's #28 test plan.
 
 - **CSRF.** Order actions need only `Content-Type: application/json` (ADR 0003). They don't need `X-Requested-With`, which only the multipart import requires. Without JSON the response is 415 `{"code": "unsupported_media_type"}`.
-- **Check order.** `require_admin` runs first. Without a session the response is 401 `{"code": "not_authenticated"}` whatever the Content-Type, and nothing changes. Every admin error body uses `{"code": ...}`, never FastAPI's `{"detail": ...}`.
+- **Check order.** `require_admin` runs first. Without a session the response is 401 `{"code": "not_authenticated"}` whatever the Content-Type, and nothing changes. Every `/api/admin/orders*` error body uses `{"code": ...}`, never FastAPI's `{"detail": ...}`. The shared `require_admin` (401) and `require_json` (415) checks do too. Login and import still return their own errors as `{"detail": ...}` in R1, and those move to `{"code": ...}` in R2.
 - **Order number in the URL.** It's upper-cased before lookup, so lower case matches. An unknown order number is 404 `{"code": "not_found"}`.
 - **Paging.** `page` is 1 or more, so 0 or below is 422. A page past the end is 200 with empty `items` and the real `total` and `counts`.
 - **Search length.** If `q` is longer than 100 characters the response is 422. It isn't cut to 100 like the shop search, so the owner can see their search was wrong.
