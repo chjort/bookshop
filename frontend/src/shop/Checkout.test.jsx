@@ -35,10 +35,20 @@ const go = (path) => window.history.pushState({}, "", path);
 const cartLine = (qty = 1) => writeCart([{ book_id: 7, title: "Alfa", author: "Karen Blixen",
   price_cents: 1250, cover_url: null, stock: 2, qty }]);
 
+// The book page mounts "Add to cart" after the book loads, outside act(), so its cart
+// listener is attached in a passive effect that can run after findByRole returns. A click
+// before that is missed and the button never re-renders. The page title is set in the same
+// commit's effects, so once it shows the book, the listener is attached too.
+async function addToCartButton() {
+  const button = await screen.findByRole("button", { name: "Add to cart" });
+  await waitFor(() => expect(document.title).toBe("Alfa – probooks"));
+  return button;
+}
+
 test("add to cart from the book page, capped at stock", async () => {
   go("/book/7");
   render(<Shop />);
-  const add = await screen.findByRole("button", { name: "Add to cart" });
+  const add = await addToCartButton();
   fireEvent.click(add);
   expect(screen.getByText("Cart (1)")).toBeTruthy();
   fireEvent.click(add);
@@ -173,7 +183,7 @@ test("book page stops adding at 10 per order (#81)", async () => {
   routes["/api/books/7"] = () => reply(200, { ...BOOK, stock: 12 });
   go("/book/7");
   render(<Shop />);
-  const add = await screen.findByRole("button", { name: "Add to cart" });
+  const add = await addToCartButton();
   fireEvent.click(add);
   expect(readCart()[0].qty).toBe(10);
   expect(add.disabled).toBe(true);
