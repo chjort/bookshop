@@ -93,3 +93,45 @@ Confirmed by the user on 2026-10-20: columns `price` and `count`, both numbers w
 Recorded by pro-architect during the review of #65 (task #9). The rest of this ADR stays as is.
 
 **Row checks are done by a plain function, not a Pydantic `BookRow` model.** The function checks every field and collects all of a row's problems at once, so the owner sees every problem on a row in one pass and can fix them together. The rules are unchanged: ISBN checksum, required title and author, `price` > 0 with at most 2 decimals (`12.50` or `12,50`), and `count` a whole number ≥ 0 (`3` and `3.0` accepted, fractions rejected, 0 valid and shown as sold out). Pydantic is still used for request bodies and responses.
+
+## Amendment 2026-10-25: import keeps copies held by open orders
+
+Recorded by pro-architect. Decided for Release 1 by pro-product-owner. Implementation is a task under #6.
+
+**Context.** ADR 0004 takes stock when an order is placed (`stock = stock - qty`) and gives it back when an unpaid order is cancelled. The import set `books.stock` to the file's `count`, so re-importing while orders were open made their copies sellable again. The owner will re-import their real stock while orders are open, so this could sell the same copy twice.
+
+**Options.**
+- **The file's `count` is the copies on the shelf. The import subtracts the copies held by open orders** (chosen). The owner counts what they physically have, which is what they know.
+- The file's `count` means copies free to sell. Nothing changes in code, but the owner would have to subtract open orders by hand. That is easy to get wrong. Rejected.
+- Block the import while any order is open. That is simple, but it stops the owner from updating stock during normal trading. Rejected.
+
+**Decision.**
+- `held(book) = SUM(order_lines.qty)` over orders with status `awaiting_payment` or `paid`. Shipped copies have left the shelf, and cancelled orders already gave their copies back.
+- On import, `stock = GREATEST(count - held, 0)` for every upserted book. A new book has `held = 0`.
+- Concurrency: the import runs at Postgres's default READ COMMITTED level, in one transaction with three separate statements, in this order:
+  1. Lock the rows of the books in the file: `SELECT id FROM books WHERE isbn = ANY(:isbns) ORDER BY id FOR UPDATE`.
+  2. Sum the held copies per book in its own statement, so it reads every order committed before step 1 got its locks.
+  3. Upsert each book with `stock = GREATEST(count - held, 0)`.
+  Placement and cancel both hold the book row locks until they commit. An order or cancel that ran first is therefore counted in step 2, and one that comes later waits for the import and works from the new stock. No new table and no migration.
+- Lock order: everything that changes `books.stock` locks book rows in ascending `id` order, so two writers can't deadlock. Placement already does this (`ORDER BY id FOR UPDATE`). Cancel has to lock its books with `SELECT ... WHERE id = ANY(:ids) ORDER BY id FOR UPDATE` before its restock `UPDATE`. That change is part of #109.
+- Only the books upserted from valid rows change. Books missing from the file and books on skipped rows keep their stock, and they add nothing to `held_back`.
+- `ImportResult` gains `held_back`, the copies actually held back: the sum of `count - stock` over the upserted books, which equals `min(held, count)` for each book. When the count is below the held copies, the import holds back only the count. Example: `{"created": 0, "updated": 150, "skipped": 0, "held_back": 4, "errors": []}`. The import page shows it next to the other counts.
+- Re-importing the same file is still safe: it gives the same stock for the same open orders.
+
+**Consequences.**
+- If the file's count is below what open orders hold, the stock is set to 0 and those orders still stand. The owner has fewer copies than they promised and must cancel or restock by hand. R1 doesn't flag which books this hits. A per-book warning can come in a later release if it happens.
+- One extra grouped query per import. That's negligible at a few thousand rows.
+- Tests:
+  - An order is open, and a re-import sets stock to count minus held.
+  - A cancel after the import gives the copies back correctly.
+  - When the count is below held, stock is 0 and `held_back` equals the count.
+  - Shipped and cancelled orders are not held.
+  - Books missing from the file and books on skipped rows keep their stock.
+  - A cancel of an order with several books locks them in id order.
+  - `held_back` is reported.
+  - Re-importing the same file twice gives the same stock and `held_back` both times.
+  - A new ISBN gets its full count, with `held_back` 0.
+  - Held copies add up across several Awaiting payment and Paid orders for the same book.
+  - Concurrency, over two DB connections: an order placed during an import ends with the correct stock.
+  - Concurrency, over two DB connections: a cancel of an order with several books during an import finishes with no deadlock and the correct stock.
+  - The import page shows `held_back`.
