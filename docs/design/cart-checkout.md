@@ -212,7 +212,7 @@ Payment page after a status change (here Cancelled):
 | Shipped | Order {ref} | Status: Shipped · Your order is on its way. | Hidden |
 | Cancelled | Order {ref} | Status: Cancelled · This order was cancelled. Please don't send a payment. | Hidden |
 
-For Paid, Shipped and Cancelled the page keeps the short order and delivery summary (order number, total, deliver-to name and address). R1 has no full item list on these pages.
+For Paid, Shipped and Cancelled the page keeps the short order and delivery summary (order number, total (EUR), deliver-to name and address). R1 has no full item list on these pages.
 
 **R2 only (#95):** long values (email, name, address) wrap with `overflow-wrap: anywhere` and never cause sideways scroll at 320 px.
 
