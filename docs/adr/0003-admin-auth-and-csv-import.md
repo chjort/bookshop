@@ -129,3 +129,9 @@ Recorded by pro-architect. Decided for Release 1 by pro-product-owner. Implement
   - Books missing from the file and books on skipped rows keep their stock.
   - A cancel of an order with several books locks them in id order.
   - `held_back` is reported.
+  - Re-importing the same file twice gives the same stock and `held_back` both times.
+  - A new ISBN gets its full count, with `held_back` 0.
+  - Held copies add up across several Awaiting payment and Paid orders for the same book.
+  - Concurrency, over two DB connections: an order placed during an import ends with the correct stock.
+  - Concurrency, over two DB connections: a cancel of an order with several books during an import finishes with no deadlock and the correct stock.
+  - The import page shows `held_back`.
